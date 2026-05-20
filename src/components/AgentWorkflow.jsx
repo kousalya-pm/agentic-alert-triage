@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw } from 'lucide-react';
+import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
@@ -39,6 +39,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id));
   const [viewingRunId, setViewingRunId] = useState(null);
+  const [escalationTicket, setEscalationTicket] = useState(null);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -73,8 +74,16 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
   };
 
   const handleAnalystAction = (action, note = '') => {
+    if (!action) {
+      // Undo
+      saveDecision(alert.alert_id, null);
+      setAnalystDecision(null);
+      setEscalationTicket(null);
+      window.dispatchEvent(new Event('soc-decisions-updated'));
+      return;
+    }
     const decision = {
-      action,          // 'confirm_tp' | 'mark_fp' | 'escalate'
+      action,
       note,
       alert_id: alert.alert_id,
       alert_severity: alert.severity,
@@ -86,8 +95,26 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
     };
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
-    // Dispatch event so AlertQueue can refresh badges without prop drilling
     window.dispatchEvent(new Event('soc-decisions-updated'));
+
+    if (action === 'escalate') {
+      const num = 100 + parseInt(alert.alert_id?.replace(/\D/g, '') || '0', 10);
+      const priority = { Critical: 'P1 — Critical', High: 'P2 — High', Medium: 'P3 — Medium', Low: 'P4 — Low' }[alert.severity] || 'P2 — High';
+      setEscalationTicket({
+        ticketId: `INC-2024-${num}`,
+        priority,
+        title: alert.title,
+        alertId: alert.alert_id,
+        assignedTo: 'IR Team / Tier 2 SOC',
+        createdAt: new Date().toISOString(),
+        verdict: summary?.verdict,
+        riskScore: summary?.risk_score,
+        mitre: summary?.mitre_assessment,
+        escalationReason: summary?.escalation_reason || note || 'Manual escalation by analyst',
+        analystNote: note,
+        executiveSummary: summary?.executive_summary,
+      });
+    }
   };
 
   useEffect(() => {
@@ -412,6 +439,133 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
 
         <div ref={bottomRef} />
       </div>
+
+      {escalationTicket && (
+        <EscalationTicketModal
+          ticket={escalationTicket}
+          onClose={() => setEscalationTicket(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Escalation Ticket Modal ──────────────────────────────────────────────────
+function EscalationTicketModal({ ticket, onClose }) {
+  const [copied, setCopied] = useState(false);
+
+  const copyTicketId = () => {
+    navigator.clipboard.writeText(ticket.ticketId).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const PRIORITY_COLOR = {
+    'P1 — Critical': 'text-red-400 bg-red-500/10 border-red-500/40',
+    'P2 — High':     'text-orange-400 bg-orange-500/10 border-orange-500/40',
+    'P3 — Medium':   'text-yellow-400 bg-yellow-500/10 border-yellow-500/40',
+    'P4 — Low':      'text-blue-400 bg-blue-500/10 border-blue-500/40',
+  };
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-[#0a0f1e]/80 backdrop-blur-sm">
+      <div className="w-full max-w-lg mx-4 bg-[#0f1629] border border-[#1e2d4a] rounded-2xl shadow-2xl overflow-hidden tool-call-enter">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1e2d4a] bg-orange-500/5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-orange-500/10 border border-orange-500/30 flex items-center justify-center">
+              <Ticket size={18} className="text-orange-400" />
+            </div>
+            <div>
+              <div className="text-xs text-[#7a9cc0] uppercase tracking-wider">Escalation Ticket Created</div>
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-bold text-white font-mono">{ticket.ticketId}</span>
+                <button
+                  onClick={copyTicketId}
+                  className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-[#1e2d4a] text-[#7a9cc0] hover:text-[#00d4ff] hover:border-[#00d4ff]/40 transition-colors"
+                >
+                  <Copy size={9} /> {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-[#7a9cc0] hover:text-white transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Ticket body */}
+        <div className="px-5 py-4 space-y-3">
+          {/* Status + priority row */}
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-orange-500/10 text-orange-400 border border-orange-500/30 font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+              Escalated — Awaiting Tier 2
+            </span>
+            <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${PRIORITY_COLOR[ticket.priority] || PRIORITY_COLOR['P2 — High']}`}>
+              {ticket.priority}
+            </span>
+          </div>
+
+          {/* Title */}
+          <div>
+            <div className="text-[10px] text-[#7a9cc0] uppercase tracking-wider mb-0.5">Alert</div>
+            <div className="text-sm text-white font-medium leading-snug">{ticket.title}</div>
+          </div>
+
+          {/* Key fields grid */}
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-xs">
+            <TicketRow label="Alert ID"     value={ticket.alertId} mono />
+            <TicketRow label="Assigned To"  value={ticket.assignedTo} />
+            <TicketRow label="AI Verdict"   value={ticket.verdict?.replace(/_/g, ' ')} highlight={ticket.verdict === 'TRUE_POSITIVE' ? 'red' : 'orange'} />
+            <TicketRow label="Risk Score"   value={ticket.riskScore != null ? `${ticket.riskScore}/10` : '—'} highlight={ticket.riskScore >= 7 ? 'red' : 'yellow'} />
+            {ticket.mitre && (
+              <TicketRow label="MITRE"      value={`${ticket.mitre.technique} · ${ticket.mitre.tactic}`} />
+            )}
+            <TicketRow label="Created"      value={new Date(ticket.createdAt).toLocaleString()} />
+          </div>
+
+          {/* Escalation reason */}
+          {ticket.escalationReason && (
+            <div className="p-3 bg-[#0a0f1e] border border-[#1e2d4a] rounded-lg">
+              <div className="text-[10px] text-[#7a9cc0] uppercase tracking-wider mb-1">Escalation Reason</div>
+              <p className="text-xs text-[#e2eaf5] leading-relaxed">{ticket.escalationReason}</p>
+            </div>
+          )}
+
+          {/* Analyst note */}
+          {ticket.analystNote && (
+            <div className="p-3 bg-[#0a0f1e] border border-[#1e2d4a] rounded-lg">
+              <div className="text-[10px] text-[#7a9cc0] uppercase tracking-wider mb-1">Analyst Note</div>
+              <p className="text-xs text-[#e2eaf5] italic">"{ticket.analystNote}"</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-[#1e2d4a] flex items-center justify-between bg-[#0a0f1e]/40">
+          <span className="text-[10px] text-[#7a9cc0]">Simulated · ServiceNow ITSM</span>
+          <button
+            onClick={onClose}
+            className="px-4 py-1.5 text-xs font-semibold bg-[#00d4ff] hover:bg-[#00b8d9] text-[#0a0f1e] rounded-lg transition-colors"
+          >
+            Acknowledge
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TicketRow({ label, value, mono, highlight }) {
+  const color = highlight === 'red' ? 'text-red-400' : highlight === 'orange' ? 'text-orange-400' :
+    highlight === 'yellow' ? 'text-yellow-400' : 'text-[#e2eaf5]';
+  return (
+    <div>
+      <div className="text-[10px] text-[#7a9cc0] mb-0.5">{label}</div>
+      <div className={`${color} ${mono ? 'font-mono' : ''} text-xs`}>{value || '—'}</div>
     </div>
   );
 }
@@ -487,7 +641,7 @@ function formatAge(timestamp) {
 
 // ─── Analyst Action Buttons ───────────────────────────────────────────────────
 function AnalystActions({ decision, aiVerdict, onAction }) {
-  const [showNoteFor, setShowNoteFor] = useState(null); // 'confirm_tp' | 'mark_fp' | 'escalate'
+  const [showNoteFor, setShowNoteFor] = useState(null); // 'confirm_tp' | 'mark_fp'
   const [note, setNote] = useState('');
 
   const submit = (action) => {
@@ -501,10 +655,11 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
       id: 'confirm_tp',
       label: 'Confirm True Positive',
       sub: 'Agree with AI — this is a real threat',
-      icon: ThumbsDown,   // thumbs down on the attacker
+      icon: ThumbsDown,
       color: 'bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20',
       activeColor: 'bg-red-500/20 border-red-500 text-red-300',
       recommended: aiVerdict === 'TRUE_POSITIVE' || aiVerdict === 'NEEDS_ESCALATION',
+      immediate: false,
     },
     {
       id: 'mark_fp',
@@ -514,15 +669,17 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
       color: 'bg-green-500/10 border-green-500/40 text-green-400 hover:bg-green-500/20',
       activeColor: 'bg-green-500/20 border-green-500 text-green-300',
       recommended: aiVerdict === 'FALSE_POSITIVE',
+      immediate: false,
     },
     {
       id: 'escalate',
       label: 'Escalate',
-      sub: 'Send to Tier 2 / IR team',
+      sub: 'Create ticket → Tier 2 / IR team',
       icon: TrendingUp,
       color: 'bg-orange-500/10 border-orange-500/40 text-orange-400 hover:bg-orange-500/20',
       activeColor: 'bg-orange-500/20 border-orange-500 text-orange-300',
       recommended: aiVerdict === 'NEEDS_ESCALATION',
+      immediate: true, // fires instantly, no confirm step needed
     },
   ];
 
@@ -544,12 +701,15 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
                                                  'text-orange-400 shrink-0 mt-0.5'
             } />
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold text-white">{cfg?.label}</span>
-                <span className="text-[10px] px-1.5 py-0.5 bg-white/10 text-[#8b949e] rounded">Analyst Decision Recorded</span>
+                {decision.action === 'escalate' && decision.ticketId && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded font-mono">{decision.ticketId}</span>
+                )}
+                <span className="text-[10px] px-1.5 py-0.5 bg-white/10 text-[#7a9cc0] rounded">Decision Recorded</span>
               </div>
               {decision.note && (
-                <p className="text-xs text-[#8b949e] mt-1 italic">"{decision.note}"</p>
+                <p className="text-xs text-[#7a9cc0] mt-1 italic">"{decision.note}"</p>
               )}
               <div className="flex items-center gap-2 mt-1 text-[10px] text-[#7a9cc0]">
                 <User size={10} />{decision.analyst}
@@ -560,7 +720,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
           </div>
           <button
             onClick={() => onAction(null)}
-            className="text-[10px] text-[#7a9cc0] hover:text-[#8b949e] underline shrink-0"
+            className="text-[10px] text-[#7a9cc0] hover:text-white underline shrink-0"
           >
             Undo
           </button>
@@ -570,10 +730,10 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
   }
 
   return (
-    <div className="rounded-xl border border-[#30363d] bg-[#161b22] p-4 tool-call-enter">
+    <div className="rounded-xl border border-[#1e2d4a] bg-[#0f1629] p-4 tool-call-enter">
       <div className="flex items-center gap-2 mb-3">
-        <MessageSquare size={14} className="text-[#8b949e]" />
-        <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Analyst Decision</h3>
+        <MessageSquare size={14} className="text-[#7a9cc0]" />
+        <h3 className="text-xs font-semibold text-[#7a9cc0] uppercase tracking-wider">Analyst Decision</h3>
         <span className="text-[10px] text-[#7a9cc0]">— override or confirm the AI verdict</span>
       </div>
 
@@ -585,15 +745,19 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
             <button
               key={a.id}
               onClick={() => {
-                setShowNoteFor(isActive ? null : a.id);
-                setNote('');
+                if (a.immediate) {
+                  onAction(a.id, '');
+                } else {
+                  setShowNoteFor(isActive ? null : a.id);
+                  setNote('');
+                }
               }}
               className={`relative flex flex-col items-start gap-1 p-3 rounded-lg border text-left transition-all ${
                 isActive ? a.activeColor : a.color
               }`}
             >
               {a.recommended && (
-                <span className="absolute -top-2 left-2 text-[9px] px-1.5 py-0.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">AI suggests</span>
+                <span className="absolute -top-2 left-2 text-[9px] px-1.5 py-0.5 bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/30 rounded-full">AI suggests</span>
               )}
               <AIcon size={15} className="shrink-0" />
               <span className="text-xs font-semibold leading-snug">{a.label}</span>
@@ -603,7 +767,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
         })}
       </div>
 
-      {/* Note input — shown when an action is selected */}
+      {/* Note input — only for TP / FP (not escalate) */}
       {showNoteFor && (
         <div className="space-y-2 tool-call-enter">
           <textarea
@@ -611,7 +775,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
             onChange={e => setNote(e.target.value)}
             placeholder="Add analyst notes (optional)..."
             rows={2}
-            className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2 text-xs text-[#e6edf3] placeholder-[#484f58] focus:outline-none focus:border-blue-500/60 resize-none"
+            className="w-full bg-[#0a0f1e] border border-[#1e2d4a] rounded-lg px-3 py-2 text-xs text-[#e2eaf5] placeholder-[#2a3f63] focus:outline-none focus:border-[#00d4ff]/60 resize-none"
           />
           <div className="flex items-center gap-2">
             <button

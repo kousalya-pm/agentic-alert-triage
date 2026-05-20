@@ -23,7 +23,15 @@ export default function App() {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('acme-soc-settings');
-      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+      if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
+      // One-time migration from original project's localStorage key
+      const legacy = localStorage.getItem('mcg-soc-settings');
+      if (legacy) {
+        const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(legacy) };
+        localStorage.setItem('acme-soc-settings', JSON.stringify(parsed));
+        return parsed;
+      }
+      return DEFAULT_SETTINGS;
     } catch { return DEFAULT_SETTINGS; }
   });
   const [loading, setLoading] = useState(true);
