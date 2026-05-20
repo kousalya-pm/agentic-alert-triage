@@ -641,8 +641,13 @@ function formatAge(timestamp) {
 
 // ─── Analyst Action Buttons ───────────────────────────────────────────────────
 function AnalystActions({ decision, aiVerdict, onAction }) {
-  const [showNoteFor, setShowNoteFor] = useState(null); // 'confirm_tp' | 'mark_fp'
+  const [showNoteFor, setShowNoteFor] = useState(null);
   const [note, setNote] = useState('');
+  const noteRef = useRef(null);
+
+  useEffect(() => {
+    if (showNoteFor) noteRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [showNoteFor]);
 
   const submit = (action) => {
     onAction(action, note.trim());
@@ -679,7 +684,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
       color: 'bg-orange-500/10 border-orange-500/40 text-orange-400 hover:bg-orange-500/20',
       activeColor: 'bg-orange-500/20 border-orange-500 text-orange-300',
       recommended: aiVerdict === 'NEEDS_ESCALATION',
-      immediate: true, // fires instantly, no confirm step needed
+      immediate: false,
     },
   ];
 
@@ -767,9 +772,8 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
         })}
       </div>
 
-      {/* Note input — only for TP / FP (not escalate) */}
       {showNoteFor && (
-        <div className="space-y-2 tool-call-enter">
+        <div ref={noteRef} className="space-y-2 tool-call-enter">
           <textarea
             value={note}
             onChange={e => setNote(e.target.value)}
