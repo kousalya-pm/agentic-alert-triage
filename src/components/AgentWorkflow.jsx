@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown } from 'lucide-react';
+import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
+import { saveRun, getRuns } from '../services/runHistoryService.js';
 
 const DECISIONS_KEY = 'acme-soc-decisions';
 
@@ -36,9 +37,40 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
   const [expandedSteps, setExpandedSteps] = useState({});
   const [elapsed, setElapsed] = useState(0);
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
+  const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id));
+  const [viewingRunId, setViewingRunId] = useState(null);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
+
+  const refreshHistory = () => setRunHistory(getRuns(alert.alert_id));
+
+  const loadHistoricalRun = (run) => {
+    setPlan(run.plan);
+    setStepResults(run.stepResults);
+    setSummary(run.summary);
+    setElapsed(run.elapsed);
+    setPhase(PHASE.DONE);
+    setError(null);
+    setActiveStep(-1);
+    // Expand all steps so the historical run is fully visible
+    const expanded = {};
+    run.plan?.investigation_steps?.forEach((_, i) => { expanded[i] = true; });
+    setExpandedSteps(expanded);
+    setViewingRunId(run.runId);
+    setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+  };
+
+  const startNewRun = () => {
+    setViewingRunId(null);
+    setPhase(PHASE.IDLE);
+    setPlan(null);
+    setStepResults([]);
+    setSummary(null);
+    setError(null);
+    setExpandedSteps({});
+    setElapsed(0);
+  };
 
   const handleAnalystAction = (action, note = '') => {
     const decision = {
@@ -117,6 +149,9 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
       setSummary(finalSummary);
       setPhase(PHASE.DONE);
       clearInterval(timerRef.current);
+      const finalElapsed = Math.floor((Date.now() - startTime.current) / 1000);
+      saveRun(alert.alert_id, { plan: investigationPlan, stepResults: results, summary: finalSummary, elapsed: finalElapsed });
+      refreshHistory();
 
     } catch (err) {
       setError(err.message);
@@ -151,32 +186,52 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            {phase !== PHASE.IDLE && (
-              <span className="text-xs text-[#8b949e] font-mono">{elapsed}s</span>
+            {phase !== PHASE.IDLE && !viewingRunId && (
+              <span className="text-xs text-[#7a9cc0] font-mono">{elapsed}s</span>
             )}
             {phase === PHASE.DONE && summary && (
               <button
                 onClick={() => exportTriageReport({ alert, plan, stepResults, summary, analystDecision, elapsed })}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#30363d] hover:border-[#484f58] text-[#8b949e] hover:text-white transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border border-[#1e2d4a] hover:border-[#2a3f63] text-[#7a9cc0] hover:text-white transition-colors"
                 title="Export triage report as PDF"
               >
                 <FileDown size={13} /> Export PDF
               </button>
             )}
-            <button
-              onClick={runTriage}
-              disabled={phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {phase === PHASE.IDLE || phase === PHASE.DONE || phase === PHASE.ERROR ? (
-                <><Play size={12} /> {phase === PHASE.DONE || phase === PHASE.ERROR ? 'Re-run Triage' : 'Run AI Triage'}</>
-              ) : (
-                <><span className="spinner" /> Investigating...</>
-              )}
-            </button>
+            {viewingRunId ? (
+              <button
+                onClick={startNewRun}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#0f1629] border border-[#00d4ff]/40 text-[#00d4ff] hover:bg-[#00d4ff]/10 transition-colors"
+              >
+                <RotateCcw size={12} /> New Run
+              </button>
+            ) : (
+              <button
+                onClick={runTriage}
+                disabled={phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#00d4ff] hover:bg-[#00b8d9] text-[#0a0f1e] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {phase === PHASE.IDLE || phase === PHASE.DONE || phase === PHASE.ERROR ? (
+                  <><Play size={12} /> {phase === PHASE.DONE || phase === PHASE.ERROR ? 'Re-run Triage' : 'Run AI Triage'}</>
+                ) : (
+                  <><span className="spinner" /> Investigating...</>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Run history bar */}
+      {runHistory.length > 0 && (
+        <RunHistoryBar
+          runs={runHistory}
+          viewingRunId={viewingRunId}
+          onLoad={loadHistoricalRun}
+          onNewRun={startNewRun}
+          isRunning={phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING}
+        />
+      )}
 
       {/* Main content */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
@@ -184,10 +239,18 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
         {/* IDLE state */}
         {phase === PHASE.IDLE && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-              <Play size={20} className="text-blue-400" />
+            <div className="w-12 h-12 rounded-xl bg-[#00d4ff]/10 border border-[#00d4ff]/20 flex items-center justify-center">
+              <Play size={20} className="text-[#00d4ff]" />
             </div>
-            <p className="text-sm text-[#8b949e]">Click <strong className="text-white">Run AI Triage</strong> to start the autonomous investigation</p>
+            <p className="text-sm text-[#7a9cc0]">Click <strong className="text-white">Run AI Triage</strong> to start the autonomous investigation</p>
+            {runHistory.length > 0 && (
+              <button
+                onClick={() => loadHistoricalRun(runHistory[0])}
+                className="flex items-center gap-1.5 text-xs text-[#7a9cc0] hover:text-[#00d4ff] transition-colors underline underline-offset-2"
+              >
+                <History size={12} /> or load latest run ({formatAge(runHistory[0].timestamp)})
+              </button>
+            )}
           </div>
         )}
 
@@ -351,6 +414,75 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
       </div>
     </div>
   );
+}
+
+// ─── Run History Bar ─────────────────────────────────────────────────────────
+const VERDICT_SHORT = {
+  TRUE_POSITIVE:    { label: 'TP',  color: 'text-red-400 border-red-500/40 bg-red-500/10' },
+  FALSE_POSITIVE:   { label: 'FP',  color: 'text-green-400 border-green-500/40 bg-green-500/10' },
+  NEEDS_ESCALATION: { label: 'ESC', color: 'text-orange-400 border-orange-500/40 bg-orange-500/10' },
+  INCONCLUSIVE:     { label: '?',   color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10' },
+};
+
+function RunHistoryBar({ runs, viewingRunId, onLoad, onNewRun, isRunning }) {
+  return (
+    <div className="shrink-0 px-5 py-2 border-b border-[#1e2d4a] bg-[#0a0f1e] flex items-center gap-2 overflow-x-auto">
+      <div className="flex items-center gap-1.5 text-[10px] text-[#7a9cc0] shrink-0">
+        <History size={11} />
+        <span className="uppercase tracking-wider font-semibold">Run History</span>
+      </div>
+      <div className="w-px h-4 bg-[#1e2d4a] shrink-0" />
+      <div className="flex items-center gap-1.5">
+        {runs.map((run, i) => {
+          const vc = VERDICT_SHORT[run.verdict] || VERDICT_SHORT.INCONCLUSIVE;
+          const isActive = viewingRunId === run.runId;
+          const age = formatAge(run.timestamp);
+          return (
+            <button
+              key={run.runId}
+              onClick={() => isActive ? null : onLoad(run)}
+              disabled={isRunning}
+              title={`Run ${runs.length - i}: ${run.verdict} · ${run.elapsed}s · ${new Date(run.timestamp).toLocaleString()}`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-medium transition-colors shrink-0 ${
+                isActive
+                  ? `${vc.color} ring-1 ring-[#00d4ff]/40`
+                  : `${vc.color} opacity-70 hover:opacity-100`
+              } disabled:cursor-not-allowed`}
+            >
+              <span className="font-bold">{vc.label}</span>
+              <span className="text-[#7a9cc0]">·</span>
+              <span className="font-mono">{run.elapsed}s</span>
+              <span className="text-[#7a9cc0]">·</span>
+              <span className="text-[#7a9cc0]">{age}</span>
+              {i === 0 && !isActive && <span className="ml-0.5 text-[#00d4ff] opacity-70">latest</span>}
+            </button>
+          );
+        })}
+      </div>
+      {viewingRunId && (
+        <>
+          <div className="w-px h-4 bg-[#1e2d4a] shrink-0" />
+          <button
+            onClick={onNewRun}
+            disabled={isRunning}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#00d4ff]/30 text-[#00d4ff] text-[10px] font-medium hover:bg-[#00d4ff]/10 transition-colors shrink-0"
+          >
+            <RotateCcw size={10} /> New Run
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function formatAge(timestamp) {
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 // ─── Analyst Action Buttons ───────────────────────────────────────────────────
