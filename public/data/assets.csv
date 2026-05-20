@@ -11,6 +11,6 @@ DC-CORP-01,AST-0001,Server,Windows Server 2022,10.10.0.1,svc-backup-admin,IT,Cha
 WKSTN-FIN-011,AST-1011,Workstation,Windows 11 Pro,10.10.5.11,sjohnson,Finance,Charlotte HQ,Medium,95%,2024-05-13T13:05:00Z,Defender,CrowdStrike Falcon,yes,0,1,
 DB-CORP-MYSQL-01,AST-0010,Server,Ubuntu 22.04 LTS,10.10.2.20,svc-mysql,IT,Charlotte HQ - DC Room,Critical,96%,2024-05-13T14:00:00Z,N/A,CrowdStrike Falcon,yes,0,2,MySQL production DB - contains client PII and financial data. No egress to internet should be allowed.
 WKSTN-FIN-047,AST-1047,Workstation,Windows 11 Pro,10.10.5.47,alee,Finance,Charlotte HQ,Low,89%,2024-05-13T14:30:00Z,Defender,CrowdStrike Falcon,yes,0,2,
-AZURE-MGMT,AST-6001,Cloud Management,Azure Portal,N/A,tadmin,IT,Azure East US,Critical,N/A,2024-05-13T15:15:00Z,N/A,N/A,N/A,0,0,Azure management plane - subscription MCG-PROD-Azure
+AZURE-MGMT,AST-6001,Cloud Management,Azure Portal,N/A,tadmin,IT,Azure East US,Critical,N/A,2024-05-13T15:15:00Z,N/A,N/A,N/A,0,0,Azure management plane - subscription ACM-PROD-Azure
 WKSTN-DEV-022,AST-4022,Workstation,Windows 11 Pro,10.10.9.22,ptran,Engineering,Charlotte HQ,Medium,92%,2024-05-13T15:45:00Z,Defender,CrowdStrike Falcon,yes,0,3,Developer workstation
 FIREWALL-CORP-01,AST-0002,Network,Palo Alto PAN-OS 11.1,10.10.0.2,ckim,IT,Charlotte HQ - DC Room,Critical,100%,2024-05-13T16:00:00Z,N/A,N/A,N/A,0,0,Primary perimeter firewall

@@ -8,7 +8,7 @@ const CLAUDE_MODEL = 'claude-sonnet-4-6';
 const OPENAI_MODEL = 'gpt-4o';
 
 // ─── System prompt shared across both providers ───────────────────────────────
-const SYSTEM_PROMPT = `You are an expert SOC (Security Operations Center) analyst AI agent for Meridian Capital Group (MCG), a financial services firm with ~500 employees, hybrid on-prem datacenter and AWS/Azure cloud.
+const SYSTEM_PROMPT = `You are an expert SOC (Security Operations Center) analyst AI agent for Acme Corp, a financial services firm with ~500 employees, hybrid on-prem datacenter and AWS/Azure cloud.
 
 Your role is to autonomously triage security alerts the way a senior Tier 2 SOC analyst would. You think systematically, check multiple data sources, and provide clear, actionable verdicts.
 

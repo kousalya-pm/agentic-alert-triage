@@ -1,7 +1,7 @@
-# MCG SOC Alert Triage — Setup Guide
+# Acme Corp SOC Alert Triage — Setup Guide
 
 ## What this is
-A working browser prototype of an Agentic SOC Alert Triage system for **Meridian Capital Group** (fictional fintech, 500 employees, hybrid cloud).
+A working browser prototype of an Agentic SOC Alert Triage system for **Acme Corp** (fictional fintech, 500 employees, hybrid cloud).
 
 The AI agent investigates each alert by:
 1. Generating a triage plan (4–6 investigation questions)

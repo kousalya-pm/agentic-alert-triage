@@ -7,10 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        'soc-dark': '#0d1117',
-        'soc-panel': '#161b22',
-        'soc-border': '#30363d',
-        'soc-accent': '#1f6feb',
+        'soc-dark':   '#0a0f1e',
+        'soc-panel':  '#0f1629',
+        'soc-card':   '#131d35',
+        'soc-border': '#1e2d4a',
+        'soc-accent': '#00d4ff',
+        'soc-muted':  '#7a9cc0',
       }
     },
   },

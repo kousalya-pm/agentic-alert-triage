@@ -20,7 +20,7 @@ function simulateMTTD(alertId, severity) {
 }
 
 function loadDecisions() {
-  try { return Object.values(JSON.parse(localStorage.getItem('mcg-soc-decisions') || '{}')); }
+  try { return Object.values(JSON.parse(localStorage.getItem('acme-soc-decisions') || '{}')); }
   catch { return []; }
 }
 
@@ -404,18 +404,18 @@ export default function Dashboard({ alerts }) {
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Industry Benchmark</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">MCG vs Financial Services sector avg (BFSI 2025)</p>
+            <p className="text-[10px] text-[#484f58] mb-4">Acme Corp vs Financial Services sector avg (BFSI 2025)</p>
             <div className="space-y-3">
               {[
-                { label: 'MTTD', mcg: fmtHrs(avgMTTD_hrs), industry: '72h', good: avgMTTD_hrs < 72, mcgRaw: avgMTTD_hrs, industryRaw: 72 },
-                { label: 'MTTR', mcg: fmtHrs(avgMTTR_hrs), industry: '24h', good: avgMTTR_hrs < 24, mcgRaw: avgMTTR_hrs, industryRaw: 24 },
-                { label: 'FP Rate', mcg: `${fpRate}%`, industry: '65%', good: fpRate < 65, mcgRaw: fpRate, industryRaw: 65 },
+                { label: 'MTTD', acme: fmtHrs(avgMTTD_hrs), industry: '72h', good: avgMTTD_hrs < 72, acmeRaw: avgMTTD_hrs, industryRaw: 72 },
+                { label: 'MTTR', acme: fmtHrs(avgMTTR_hrs), industry: '24h', good: avgMTTR_hrs < 24, acmeRaw: avgMTTR_hrs, industryRaw: 24 },
+                { label: 'FP Rate', acme: `${fpRate}%`, industry: '65%', good: fpRate < 65, acmeRaw: fpRate, industryRaw: 65 },
               ].map(row => (
                 <div key={row.label}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-[#8b949e]">{row.label}</span>
                     <div className="flex items-center gap-3">
-                      <span className={`font-bold ${row.good ? 'text-green-400' : 'text-red-400'}`}>MCG: {row.mcg}</span>
+                      <span className={`font-bold ${row.good ? 'text-green-400' : 'text-red-400'}`}>Acme: {row.acme}</span>
                       <span className="text-[#484f58]">Industry: {row.industry}</span>
                       {row.good
                         ? <CheckCircle size={12} className="text-green-400" />
@@ -428,7 +428,7 @@ export default function Dashboard({ alerts }) {
                     <div className="absolute top-0 bottom-0 w-px bg-[#484f58]" style={{ left: '60%' }} />
                     <div
                       className={`h-full rounded-full ${row.good ? 'bg-green-500' : 'bg-red-500'}`}
-                      style={{ width: `${Math.min((row.mcgRaw / (row.industryRaw * 1.5)) * 100, 100)}%` }}
+                      style={{ width: `${Math.min((row.acmeRaw / (row.industryRaw * 1.5)) * 100, 100)}%` }}
                     />
                   </div>
                 </div>

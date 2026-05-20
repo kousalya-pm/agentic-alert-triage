@@ -1,7 +1,7 @@
 {
-  "name": "meridian-soc-triage",
-  "version": "1.0.0",
-  "description": "Meridian Capital Group - Agentic SOC Alert Triage Prototype",
+  "name": "acme-soc-triage",
+  "version": "2.0.0",
+  "description": "Acme Corp - Agentic SOC Alert Triage",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"vite\" \"node server.js\"",

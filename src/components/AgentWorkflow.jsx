@@ -4,7 +4,7 @@ import { generateInvestigationPlan, generateFinalSummary } from '../services/aiS
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
 
-const DECISIONS_KEY = 'mcg-soc-decisions';
+const DECISIONS_KEY = 'acme-soc-decisions';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }

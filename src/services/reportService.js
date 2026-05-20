@@ -296,18 +296,18 @@ export function exportTriageReport({ alert, plan, stepResults, summary, analystD
   <!-- Print/Save button bar (hidden when printing) -->
   <div class="print-btn-bar no-print">
     <span style="color:#94a3b8; font-size:9pt;">
-      🛡 MCG SOC Triage Report — ${alert.alert_id} &nbsp;|&nbsp; Generated ${now}
+      🛡 Acme Corp SOC Triage Report — ${alert.alert_id} &nbsp;|&nbsp; Generated ${now}
     </span>
     <button class="print-btn" onclick="window.print()">⬇ Save as PDF / Print</button>
   </div>
 
   <!-- TLP Banner -->
-  <div class="tlp-banner">TLP:RED — RESTRICTED TO MCG SOC PERSONNEL ONLY</div>
+  <div class="tlp-banner">TLP:RED — RESTRICTED TO ACME CORP SOC PERSONNEL ONLY</div>
 
   <!-- Report Header -->
   <div class="report-header">
     <div class="report-header-left">
-      <h1>🛡 Meridian Capital Group</h1>
+      <h1>🛡 Acme Corp</h1>
       <p>Security Operations Center — Agentic Triage Report</p>
     </div>
     <div class="report-header-right">
@@ -432,8 +432,8 @@ export function exportTriageReport({ alert, plan, stepResults, summary, analystD
 
   <!-- Footer -->
   <div class="report-footer">
-    <span>Meridian Capital Group — Security Operations Center</span>
-    <span>TLP:RED — Do not distribute outside MCG SOC</span>
+    <span>Acme Corp — Security Operations Center</span>
+    <span>TLP:RED — Do not distribute outside Acme Corp SOC</span>
     <span>Generated ${now}</span>
   </div>
 

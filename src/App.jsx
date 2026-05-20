@@ -22,7 +22,7 @@ export default function App() {
   const [activeView, setActiveView] = useState('queue'); // 'queue' | 'dashboard'
   const [settings, setSettings] = useState(() => {
     try {
-      const saved = localStorage.getItem('mcg-soc-settings');
+      const saved = localStorage.getItem('acme-soc-settings');
       return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
     } catch { return DEFAULT_SETTINGS; }
   });
@@ -37,7 +37,7 @@ export default function App() {
 
   const handleSaveSettings = useCallback((newSettings) => {
     setSettings(newSettings);
-    localStorage.setItem('mcg-soc-settings', JSON.stringify(newSettings));
+    localStorage.setItem('acme-soc-settings', JSON.stringify(newSettings));
     setShowSettings(false);
   }, []);
 
@@ -50,25 +50,25 @@ export default function App() {
   const hasApiKey = settings.anthropicKey || settings.openaiKey;
 
   return (
-    <div className="flex flex-col h-screen bg-[#0d1117] text-[#e6edf3]">
+    <div className="flex flex-col h-screen bg-[#0a0f1e] text-[#e2eaf5]">
       {/* ── Top nav ── */}
-      <header className="flex items-center justify-between px-4 py-2 bg-[#161b22] border-b border-[#30363d] shrink-0">
+      <header className="flex items-center justify-between px-4 py-2 bg-[#0f1629] border-b border-[#1e2d4a] shrink-0 cyber-glow">
         <div className="flex items-center gap-3">
-          <Shield className="text-blue-400" size={22} />
+          <Shield className="text-[#00d4ff]" size={22} />
           <div>
-            <span className="font-bold text-sm text-white">Meridian Capital Group</span>
-            <span className="text-[#8b949e] text-xs ml-2">· SOC Alert Triage</span>
+            <span className="font-bold text-sm text-white">Acme Corp</span>
+            <span className="text-[#7a9cc0] text-xs ml-2">· SOC Alert Triage</span>
           </div>
-          <span className="ml-2 px-2 py-0.5 text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">AI-Powered</span>
+          <span className="ml-2 px-2 py-0.5 text-xs bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/30 rounded-full">AI-Powered</span>
         </div>
 
         <div className="flex items-center gap-6">
           {/* View tabs */}
-          <div className="flex items-center bg-[#0d1117] border border-[#30363d] rounded-lg p-0.5">
+          <div className="flex items-center bg-[#0a0f1e] border border-[#1e2d4a] rounded-lg p-0.5">
             <button
               onClick={() => setActiveView('queue')}
               className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-colors ${
-                activeView === 'queue' ? 'bg-[#21262d] text-white' : 'text-[#8b949e] hover:text-white'
+                activeView === 'queue' ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]' : 'text-[#7a9cc0] hover:text-white'
               }`}
             >
               <ListFilter size={12} /> Alert Queue
@@ -76,7 +76,7 @@ export default function App() {
             <button
               onClick={() => setActiveView('dashboard')}
               className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-colors ${
-                activeView === 'dashboard' ? 'bg-[#21262d] text-white' : 'text-[#8b949e] hover:text-white'
+                activeView === 'dashboard' ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]' : 'text-[#7a9cc0] hover:text-white'
               }`}
             >
               <LayoutDashboard size={12} /> Dashboard
@@ -87,18 +87,18 @@ export default function App() {
           <div className="flex items-center gap-4 text-xs">
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-500 pulse-dot" />
-              <span className="text-[#8b949e]">Critical:</span>
+              <span className="text-[#7a9cc0]">Critical:</span>
               <span className="text-red-400 font-bold">{stats.critical}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-orange-500" />
-              <span className="text-[#8b949e]">High:</span>
+              <span className="text-[#7a9cc0]">High:</span>
               <span className="text-orange-400 font-bold">{stats.high}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Activity size={12} className="text-[#8b949e]" />
-              <span className="text-[#8b949e]">Open:</span>
-              <span className="text-white font-bold">{stats.open}</span>
+              <Activity size={12} className="text-[#7a9cc0]" />
+              <span className="text-[#7a9cc0]">Open:</span>
+              <span className="text-[#00d4ff] font-bold">{stats.open}</span>
             </div>
           </div>
 
@@ -115,7 +115,7 @@ export default function App() {
 
           <button
             onClick={() => setShowSettings(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#8b949e] hover:text-white border border-[#30363d] hover:border-[#484f58] rounded-md transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#7a9cc0] hover:text-white border border-[#1e2d4a] hover:border-[#2a3f63] rounded-md transition-colors"
           >
             <Settings size={13} />
             Settings
@@ -169,8 +169,8 @@ export default function App() {
 function EmptyState({ onOpenSettings, hasKey }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center gap-4 px-8">
-      <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-2">
-        <Shield size={32} className="text-blue-400" />
+      <div className="w-16 h-16 rounded-2xl bg-[#00d4ff]/10 border border-[#00d4ff]/20 flex items-center justify-center mb-2 cyber-glow">
+        <Shield size={32} className="text-[#00d4ff]" />
       </div>
       <h2 className="text-xl font-semibold text-white">Select an alert to begin triage</h2>
       <p className="text-[#8b949e] max-w-sm text-sm leading-relaxed">
@@ -179,7 +179,7 @@ function EmptyState({ onOpenSettings, hasKey }) {
       {!hasKey && (
         <button
           onClick={onOpenSettings}
-          className="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-colors"
+          className="mt-2 px-4 py-2 bg-[#00d4ff] hover:bg-[#00b8d9] text-[#0a0f1e] text-sm font-bold rounded-lg transition-colors"
         >
           Configure AI API Key →
         </button>
@@ -193,7 +193,7 @@ function EmptyState({ onOpenSettings, hasKey }) {
           ['🚨', 'AbuseIPDB', 'Community IP reputation'],
           ['🦠', 'VirusTotal', '70+ AV vendor check'],
         ].map(([icon, label, sub]) => (
-          <div key={label} className="flex items-start gap-2 p-2 bg-[#161b22] border border-[#30363d] rounded-lg">
+          <div key={label} className="flex items-start gap-2 p-2 bg-[#0f1629] border border-[#1e2d4a] rounded-lg">
             <span className="text-base">{icon}</span>
             <div>
               <div className="text-white font-medium">{label}</div>

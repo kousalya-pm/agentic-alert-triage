@@ -1,4 +1,4 @@
-// MCG SOC Triage - API Proxy Server
+// Acme Corp SOC Triage - API Proxy Server
 // Handles external API calls that can't be made directly from the browser (CORS)
 // Run with: node server.js
 
@@ -211,7 +211,7 @@ function simulateURLScan(q) {
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  console.log(`\n🛡️  MCG SOC Proxy Server running on http://localhost:${PORT}`);
+  console.log(`\n🛡️  Acme Corp SOC Proxy Server running on http://localhost:${PORT}`);
   console.log(`   AbuseIPDB: ${process.env.ABUSEIPDB_API_KEY ? '✅ Key loaded' : '⚠️  No key — using simulated data'}`);
   console.log(`   VirusTotal: ${process.env.VIRUSTOTAL_API_KEY ? '✅ Key loaded' : '⚠️  No key — using simulated data'}`);
   console.log(`   URLScan.io: ${process.env.URLSCAN_API_KEY ? '✅ Key loaded' : '⚠️  No key — public API'}`);
