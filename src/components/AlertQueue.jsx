@@ -150,12 +150,12 @@ function AlertRow({ alert, isSelected, decision, onClick }) {
           {alert.user_id && <span>👤 {alert.user_id}</span>}
           {alert.hostname && <span>💻 {alert.hostname}</span>}
         </div>
-        <span className="text-[10px] text-[#2a3f63]">{timeStr}</span>
+        <span className="text-[10px] text-[#7a9cc0]">{timeStr}</span>
       </div>
 
       <div className="flex items-center justify-between mt-1">
         {alert.alert_id && (
-          <span className="text-[10px] text-[#2a3f63]">{alert.alert_id}</span>
+          <span className="text-[10px] text-[#7a9cc0]">{alert.alert_id}</span>
         )}
         {decision && DECISION_BADGE[decision.action] && (
           <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${DECISION_BADGE[decision.action].cls}`}>

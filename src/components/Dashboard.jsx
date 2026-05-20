@@ -40,7 +40,7 @@ function KpiCard({ icon: Icon, iconColor, label, value, sub, trend, trendGood })
         <div className="text-2xl font-bold text-white">{value}</div>
         <div className="text-xs text-[#8b949e]">{label}</div>
       </div>
-      {sub && <div className="text-[10px] text-[#484f58]">{sub}</div>}
+      {sub && <div className="text-[10px] text-[#7a9cc0]">{sub}</div>}
     </div>
   );
 }
@@ -105,7 +105,7 @@ function DonutChart({ segments, size = 120 }) {
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: seg.color }} />
             <span className="text-[#8b949e]">{seg.label}</span>
             <span className="text-white font-medium ml-auto">{seg.value}</span>
-            <span className="text-[#484f58]">({Math.round(seg.value / total * 100)}%)</span>
+            <span className="text-[#7a9cc0]">({Math.round(seg.value / total * 100)}%)</span>
           </div>
         ))}
       </div>
@@ -231,12 +231,12 @@ export default function Dashboard({ alerts }) {
       <div className="flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22] shrink-0">
         <div>
           <h2 className="text-sm font-semibold text-white">SOC Metrics Dashboard</h2>
-          <p className="text-[10px] text-[#484f58]">
+          <p className="text-[10px] text-[#7a9cc0]">
             Historical: past_alerts.csv · Current queue: {openAlerts.length} open · Session decisions: {decisions.length}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[10px] text-[#484f58]">Refreshed {lastRefresh.toLocaleTimeString()}</span>
+          <span className="text-[10px] text-[#7a9cc0]">Refreshed {lastRefresh.toLocaleTimeString()}</span>
           <button
             onClick={refresh}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#8b949e] border border-[#30363d] hover:border-[#484f58] hover:text-white rounded-lg transition-colors"
@@ -312,7 +312,7 @@ export default function Dashboard({ alerts }) {
 
           <div className="col-span-1 bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Historical Verdict Split</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">{pastAlerts.length} closed alerts</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">{pastAlerts.length} closed alerts</p>
             <DonutChart segments={verdictSegments} />
           </div>
         </div>
@@ -321,7 +321,7 @@ export default function Dashboard({ alerts }) {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">MTTR by Category</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">Average hours from detection to close (historical)</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Average hours from detection to close (historical)</p>
             <HBarChart
               data={mttrCatData}
               colorFn={(label) => catColor[label] || 'bg-gray-500'}
@@ -330,12 +330,12 @@ export default function Dashboard({ alerts }) {
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Analyst Decisions — This Session</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">Actions you've taken via the triage panel</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Actions you've taken via the triage panel</p>
 
             {decisions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-6 text-center gap-2">
-                <p className="text-xs text-[#484f58]">No decisions recorded yet.</p>
-                <p className="text-[10px] text-[#484f58]">Triage an alert and click Confirm TP / Mark FP / Escalate.</p>
+                <p className="text-xs text-[#7a9cc0]">No decisions recorded yet.</p>
+                <p className="text-[10px] text-[#7a9cc0]">Triage an alert and click Confirm TP / Mark FP / Escalate.</p>
               </div>
             ) : (
               <>
@@ -366,7 +366,7 @@ export default function Dashboard({ alerts }) {
                         {d.action === 'confirm_tp' ? '🔴' : d.action === 'mark_fp' ? '🟢' : '🟠'}
                       </span>
                       <span className="text-[#8b949e] font-mono shrink-0">{d.alert_id}</span>
-                      <span className="text-[#484f58]">{d.alert_category}</span>
+                      <span className="text-[#7a9cc0]">{d.alert_category}</span>
                       {d.elapsed_seconds > 0 && (
                         <span className="ml-auto text-[10px] text-blue-400 shrink-0">{d.elapsed_seconds}s</span>
                       )}
@@ -382,11 +382,11 @@ export default function Dashboard({ alerts }) {
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Top MITRE ATT&CK Tactics</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">Current open alert queue</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Current open alert queue</p>
             <div className="space-y-2">
               {topTactics.map(([tactic, count], i) => (
                 <div key={tactic} className="flex items-center gap-3">
-                  <span className="text-[10px] text-[#484f58] w-4 text-right">{i + 1}</span>
+                  <span className="text-[10px] text-[#7a9cc0] w-4 text-right">{i + 1}</span>
                   <div className="flex-1 flex items-center gap-2">
                     <span className="text-xs text-[#8b949e]">{tactic}</span>
                     <div className="flex-1 h-1.5 bg-[#0d1117] rounded-full overflow-hidden">
@@ -404,7 +404,7 @@ export default function Dashboard({ alerts }) {
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Industry Benchmark</h3>
-            <p className="text-[10px] text-[#484f58] mb-4">Acme Corp vs Financial Services sector avg (BFSI 2025)</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Acme Corp vs Financial Services sector avg (BFSI 2025)</p>
             <div className="space-y-3">
               {[
                 { label: 'MTTD', acme: fmtHrs(avgMTTD_hrs), industry: '72h', good: avgMTTD_hrs < 72, acmeRaw: avgMTTD_hrs, industryRaw: 72 },
@@ -416,7 +416,7 @@ export default function Dashboard({ alerts }) {
                     <span className="text-[#8b949e]">{row.label}</span>
                     <div className="flex items-center gap-3">
                       <span className={`font-bold ${row.good ? 'text-green-400' : 'text-red-400'}`}>Acme: {row.acme}</span>
-                      <span className="text-[#484f58]">Industry: {row.industry}</span>
+                      <span className="text-[#7a9cc0]">Industry: {row.industry}</span>
                       {row.good
                         ? <CheckCircle size={12} className="text-green-400" />
                         : <XCircle size={12} className="text-red-400" />
@@ -433,7 +433,7 @@ export default function Dashboard({ alerts }) {
                   </div>
                 </div>
               ))}
-              <p className="text-[10px] text-[#484f58] mt-2">Benchmark source: Picus Security BFSI Report 2025</p>
+              <p className="text-[10px] text-[#7a9cc0] mt-2">Benchmark source: Picus Security BFSI Report 2025</p>
             </div>
           </div>
         </div>

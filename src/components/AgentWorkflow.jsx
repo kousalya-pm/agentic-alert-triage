@@ -176,7 +176,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
             </div>
             <h1 className="text-sm font-semibold text-white leading-snug">{alert.title}</h1>
             <p className="text-xs text-[#8b949e] mt-1 leading-relaxed line-clamp-2">{alert.description}</p>
-            <div className="flex items-center gap-3 mt-2 text-[10px] text-[#484f58] flex-wrap">
+            <div className="flex items-center gap-3 mt-2 text-[10px] text-[#7a9cc0] flex-wrap">
               {alert.timestamp && <span>🕐 {new Date(alert.timestamp).toLocaleString()}</span>}
               {alert.user_id && <span>👤 {alert.user_id}</span>}
               {alert.hostname && <span>💻 {alert.hostname}</span>}
@@ -340,14 +340,14 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
                     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                       toolMeta.category === 'external' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'
                     }`}>{toolMeta.category === 'external' ? 'External API' : 'Internal'}</span>
-                    <span className="text-[10px] text-[#484f58]">{toolMeta.source}</span>
+                    <span className="text-[10px] text-[#7a9cc0]">{toolMeta.source}</span>
                   </div>
                   <p className="text-xs text-[#8b949e] mt-0.5 italic">"{step.question}"</p>
-                  <p className="text-xs text-[#484f58] mt-0.5">{step.rationale}</p>
+                  <p className="text-xs text-[#7a9cc0] mt-0.5">{step.rationale}</p>
                 </div>
 
                 {isDone && (
-                  <div className="shrink-0 text-[#484f58]">
+                  <div className="shrink-0 text-[#7a9cc0]">
                     {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   </div>
                 )}
@@ -362,7 +362,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
                     </span>
                   ))}
                   {result?.duration_ms && (
-                    <span className="text-[10px] text-[#484f58] ml-auto flex items-center gap-0.5">
+                    <span className="text-[10px] text-[#7a9cc0] ml-auto flex items-center gap-0.5">
                       <Clock size={10} />{result.duration_ms}ms
                     </span>
                   )}
@@ -551,7 +551,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
               {decision.note && (
                 <p className="text-xs text-[#8b949e] mt-1 italic">"{decision.note}"</p>
               )}
-              <div className="flex items-center gap-2 mt-1 text-[10px] text-[#484f58]">
+              <div className="flex items-center gap-2 mt-1 text-[10px] text-[#7a9cc0]">
                 <User size={10} />{decision.analyst}
                 <span>·</span>
                 <span>{new Date(decision.timestamp).toLocaleString()}</span>
@@ -560,7 +560,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
           </div>
           <button
             onClick={() => onAction(null)}
-            className="text-[10px] text-[#484f58] hover:text-[#8b949e] underline shrink-0"
+            className="text-[10px] text-[#7a9cc0] hover:text-[#8b949e] underline shrink-0"
           >
             Undo
           </button>
@@ -574,7 +574,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
       <div className="flex items-center gap-2 mb-3">
         <MessageSquare size={14} className="text-[#8b949e]" />
         <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Analyst Decision</h3>
-        <span className="text-[10px] text-[#484f58]">— override or confirm the AI verdict</span>
+        <span className="text-[10px] text-[#7a9cc0]">— override or confirm the AI verdict</span>
       </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3">
@@ -683,10 +683,10 @@ function ResultDisplay({ toolName, result }) {
             <div className="flex items-center gap-2">
               <span className={`font-medium ${a.verdict === 'True Positive' ? 'text-red-400' : 'text-green-400'}`}>{a.verdict}</span>
               <span className="text-[#8b949e]">{a.alert_id}</span>
-              <span className="text-[#484f58]">{new Date(a.timestamp).toLocaleDateString()}</span>
+              <span className="text-[#7a9cc0]">{new Date(a.timestamp).toLocaleDateString()}</span>
             </div>
             <div className="text-[#8b949e]">{a.title}</div>
-            <div className="text-[#484f58] italic">{a.analyst_notes}</div>
+            <div className="text-[#7a9cc0] italic">{a.analyst_notes}</div>
           </div>
         ))}
       </div>
@@ -706,7 +706,7 @@ function ResultDisplay({ toolName, result }) {
               <span className="text-[#8b949e]">{h.threat_category}</span>
             </div>
             <div className="text-[#8b949e]">{h.description}</div>
-            <div className="text-[#484f58]">Source: {h.source}</div>
+            <div className="text-[#7a9cc0]">Source: {h.source}</div>
           </div>
         ))}
       </div>
@@ -776,7 +776,7 @@ function ResultDisplay({ toolName, result }) {
             )}
           </div>
         ))}
-        {result.simulated && <p className="text-[10px] text-[#484f58] italic">Simulated data</p>}
+        {result.simulated && <p className="text-[10px] text-[#7a9cc0] italic">Simulated data</p>}
       </div>
     );
   }
@@ -798,7 +798,7 @@ function Row({ label, value, highlight }) {
                 'text-white';
   return (
     <div className="flex gap-2 text-xs">
-      <span className="text-[#484f58] w-24 shrink-0">{label}</span>
+      <span className="text-[#7a9cc0] w-24 shrink-0">{label}</span>
       <span className={color}>{val}</span>
     </div>
   );
@@ -894,7 +894,7 @@ function SummaryPanel({ summary, elapsed }) {
                   }`}>{a.priority}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs text-[#e6edf3]">{a.action}</p>
-                    <p className="text-[10px] text-[#484f58] mt-0.5">Owner: {a.owner}</p>
+                    <p className="text-[10px] text-[#7a9cc0] mt-0.5">Owner: {a.owner}</p>
                   </div>
                 </div>
               ))}
