@@ -1,0 +1,16 @@
+hostname,asset_id,type,os,ip_address,owner_user_id,department,location,criticality,patch_level,last_seen,antivirus,edr_installed,encrypted,open_vulns_critical,open_vulns_high,notes
+WKSTN-FIN-042,AST-1042,Workstation,Windows 11 Pro,10.10.5.42,jsmith,Finance,Charlotte HQ,Medium,94%,2024-05-13T02:17:00Z,Defender,CrowdStrike Falcon,yes,0,2,Standard finance workstation
+WKSTN-FIN-019,AST-1019,Workstation,Windows 11 Pro,10.10.5.19,mchen,Finance,Charlotte HQ,Medium,97%,2024-05-13T07:34:00Z,Defender,CrowdStrike Falcon,yes,0,1,
+LAPTOP-EXEC-001,AST-2001,Laptop,macOS Sonoma,10.10.0.5,rhayes,Executive,Charlotte HQ,High,100%,2024-05-13T08:00:00Z,Defender,CrowdStrike Falcon,yes,0,0,CFO device - managed MacBook Pro
+WKSTN-FIN-033,AST-1033,Workstation,Windows 11 Pro,10.10.5.33,dpark,Finance,Charlotte HQ,Medium,93%,2024-05-13T08:45:00Z,Defender,CrowdStrike Falcon,yes,0,3,
+WKSTN-MKTG-007,AST-3007,Workstation,Windows 10 Pro,10.10.8.7,bwilson,Marketing,Charlotte HQ,Low,78%,2024-05-13T09:15:00Z,Defender,CrowdStrike Falcon,yes,1,4,Patch level below threshold - flagged for update
+WKSTN-FIN-055,AST-1055,Workstation,Windows 11 Pro,10.10.5.55,,Finance,Charlotte HQ,High,91%,2024-05-13T10:30:00Z,Defender,CrowdStrike Falcon,yes,0,1,Shared finance team workstation - finance_shared folder owner
+WKSTN-FIN-028,AST-1028,Workstation,Windows 11 Pro,10.10.5.28,lmartinez,Finance,Charlotte HQ,Medium,96%,2024-05-13T11:00:00Z,Defender,CrowdStrike Falcon,yes,0,0,
+AWS-EC2-PROD-02,AST-5002,Cloud Instance,Amazon Linux 2,10.10.4.12,ci-deploy-prod,Engineering,AWS us-east-1,High,100%,2024-05-13T11:45:00Z,N/A,CrowdStrike Falcon Cloud,yes,0,2,Production EC2 - CI/CD runner
+DC-CORP-01,AST-0001,Server,Windows Server 2022,10.10.0.1,svc-backup-admin,IT,Charlotte HQ - DC Room,Critical,99%,2024-05-13T12:20:00Z,Defender,CrowdStrike Falcon,yes,0,0,PRIMARY DOMAIN CONTROLLER - Highest criticality. Any alert on this asset = immediate escalation.
+WKSTN-FIN-011,AST-1011,Workstation,Windows 11 Pro,10.10.5.11,sjohnson,Finance,Charlotte HQ,Medium,95%,2024-05-13T13:05:00Z,Defender,CrowdStrike Falcon,yes,0,1,
+DB-CORP-MYSQL-01,AST-0010,Server,Ubuntu 22.04 LTS,10.10.2.20,svc-mysql,IT,Charlotte HQ - DC Room,Critical,96%,2024-05-13T14:00:00Z,N/A,CrowdStrike Falcon,yes,0,2,MySQL production DB - contains client PII and financial data. No egress to internet should be allowed.
+WKSTN-FIN-047,AST-1047,Workstation,Windows 11 Pro,10.10.5.47,alee,Finance,Charlotte HQ,Low,89%,2024-05-13T14:30:00Z,Defender,CrowdStrike Falcon,yes,0,2,
+AZURE-MGMT,AST-6001,Cloud Management,Azure Portal,N/A,tadmin,IT,Azure East US,Critical,N/A,2024-05-13T15:15:00Z,N/A,N/A,N/A,0,0,Azure management plane - subscription MCG-PROD-Azure
+WKSTN-DEV-022,AST-4022,Workstation,Windows 11 Pro,10.10.9.22,ptran,Engineering,Charlotte HQ,Medium,92%,2024-05-13T15:45:00Z,Defender,CrowdStrike Falcon,yes,0,3,Developer workstation
+FIREWALL-CORP-01,AST-0002,Network,Palo Alto PAN-OS 11.1,10.10.0.2,ckim,IT,Charlotte HQ - DC Room,Critical,100%,2024-05-13T16:00:00Z,N/A,N/A,N/A,0,0,Primary perimeter firewall
