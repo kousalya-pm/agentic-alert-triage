@@ -233,23 +233,34 @@ async function callOpenAI(prompt, settings, maxTokens) {
 }
 
 function parseJSON(text) {
-  // 1. Strip markdown code fences anywhere in the string (```json ... ``` or ``` ... ```)
+  // Strip markdown code fences
   let cleaned = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
 
-  // 2. If the model prefixed plain text before the JSON object, extract from first { or [
+  // Extract from first { or [ if model added preamble text
   const firstBrace = cleaned.search(/[{[]/);
   if (firstBrace > 0) cleaned = cleaned.slice(firstBrace);
 
-  // 3. If the model appended text after the JSON, extract up to the matching closing brace
+  // Trim anything after the last } or ]
   const lastBrace = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
   if (lastBrace !== -1 && lastBrace < cleaned.length - 1) {
     cleaned = cleaned.slice(0, lastBrace + 1);
   }
 
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    // Surface enough of the raw text to diagnose the problem
+  // Attempt 1: parse as-is
+  try { return JSON.parse(cleaned); } catch (_) {}
+
+  // Attempt 2: fix invalid escape sequences
+  // The AI sometimes includes Windows paths (C:\Users\...) or other \ followed by
+  // characters that are not valid JSON escape chars (valid: " \ / b f n r t uXXXX).
+  // Replace \X (invalid) with \\X so the backslash becomes a literal character.
+  const fixedEscapes = cleaned.replace(/\\([^"\\\/bfnrtu\n\r])/g, '\\\\$1');
+  try { return JSON.parse(fixedEscapes); } catch (_) {}
+
+  // Attempt 3: also strip trailing commas and fix unquoted keys
+  const aggressive = fixedEscapes
+    .replace(/,(\s*[}\]])/g, '$1')
+    .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":');
+  try { return JSON.parse(aggressive); } catch (e) {
     throw new Error(
       `AI returned invalid JSON.\n\nParse error: ${e.message}\n\nRaw response (first 400 chars):\n${text.slice(0, 400)}`
     );
