@@ -21,7 +21,7 @@ function simulateMTTD(alertId, severity) {
 }
 
 function loadDecisions() {
-  try { return Object.values(JSON.parse(localStorage.getItem('acme-soc-decisions') || '{}')); }
+  try { return Object.values(JSON.parse(localStorage.getItem('acme-soc-decisions') || '{}')).filter(Boolean); }
   catch { return []; }
 }
 
