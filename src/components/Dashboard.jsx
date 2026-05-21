@@ -6,6 +6,7 @@ import { loadCSV } from '../services/csvService.js';
 
 function msToHrs(ms) { return ms / 3_600_000; }
 function fmtHrs(h) {
+  if (!h || !isFinite(h) || h <= 0) return '—';
   if (h < 1) return `${Math.round(h * 60)}m`;
   if (h < 24) return `${h.toFixed(1)}h`;
   return `${(h / 24).toFixed(1)}d`;
@@ -151,7 +152,10 @@ export default function Dashboard({ alerts }) {
   const closedAlerts = pastAlerts.filter(a => a.closed_at && a.timestamp);
   const tpAlerts = closedAlerts.filter(a => a.verdict === 'True Positive');
   const avgMTTR_ms = tpAlerts.length
-    ? tpAlerts.reduce((s, a) => s + (new Date(a.closed_at) - new Date(a.timestamp)), 0) / tpAlerts.length
+    ? tpAlerts.reduce((s, a) => {
+        const diff = new Date(a.closed_at) - new Date(a.timestamp);
+        return s + (isFinite(diff) ? diff : 0);
+      }, 0) / tpAlerts.length
     : 0;
   const avgMTTR_hrs = msToHrs(avgMTTR_ms);
 
@@ -217,7 +221,9 @@ export default function Dashboard({ alerts }) {
   const mttrBycat = {};
   closedAlerts.forEach(a => {
     if (!a.category) return;
-    const hrs = msToHrs(new Date(a.closed_at) - new Date(a.timestamp));
+    const diff = new Date(a.closed_at) - new Date(a.timestamp);
+    const hrs = isFinite(diff) ? msToHrs(diff) : null;
+    if (!hrs) return;
     if (!mttrBycat[a.category]) mttrBycat[a.category] = [];
     mttrBycat[a.category].push(hrs);
   });
