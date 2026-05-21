@@ -134,7 +134,9 @@ export default function App() {
       {/* ── Main layout ── */}
       <div className="flex flex-1 overflow-hidden">
         {activeView === 'dashboard' ? (
-          <Dashboard alerts={alerts} />
+          <div className="flex-1 overflow-hidden">
+            <Dashboard alerts={alerts} />
+          </div>
         ) : (
           <>
             {/* Left: Alert queue */}

@@ -226,7 +226,7 @@ export default function Dashboard({ alerts }) {
     .sort((a, b) => b.value - a.value);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto bg-[#0d1117]">
+    <div className="flex flex-col h-full w-full overflow-y-auto bg-[#0d1117]">
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-[#30363d] bg-[#161b22] shrink-0">
         <div>
