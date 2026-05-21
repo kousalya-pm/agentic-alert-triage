@@ -36,7 +36,7 @@ const CAT_ICON = {
   'Cloud': '☁️',
 };
 
-export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAlert }) {
+export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAlert, onEntityClick }) {
   const [search, setSearch] = useState('');
   const [filterSev, setFilterSev] = useState('All');
   const decisions = useDecisions();
@@ -104,6 +104,7 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
               isSelected={selectedAlert?.alert_id === alert.alert_id}
               decision={decisions[alert.alert_id] || null}
               onClick={() => onSelectAlert(alert)}
+              onEntityClick={onEntityClick}
             />
           ))
         )}
@@ -118,7 +119,7 @@ const DECISION_BADGE = {
   escalate:   { label: 'Escalated', cls: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
 
-function AlertRow({ alert, isSelected, decision, onClick }) {
+function AlertRow({ alert, isSelected, decision, onClick, onEntityClick }) {
   const ts = alert.timestamp ? new Date(alert.timestamp) : null;
   const timeStr = ts
     ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -147,8 +148,18 @@ function AlertRow({ alert, isSelected, decision, onClick }) {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[10px] text-[#7a9cc0]">
-          {alert.user_id && <span>👤 {alert.user_id}</span>}
-          {alert.hostname && <span>💻 {alert.hostname}</span>}
+          {alert.user_id && (
+            <button
+              onClick={e => { e.stopPropagation(); onEntityClick?.('user', alert.user_id); }}
+              className="hover:text-[#00d4ff] transition-colors"
+            >👤 {alert.user_id}</button>
+          )}
+          {alert.hostname && (
+            <button
+              onClick={e => { e.stopPropagation(); onEntityClick?.('asset', alert.hostname); }}
+              className="hover:text-[#00d4ff] transition-colors"
+            >💻 {alert.hostname}</button>
+          )}
         </div>
         <span className="text-[10px] text-[#7a9cc0]">{timeStr}</span>
       </div>

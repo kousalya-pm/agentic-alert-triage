@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter } from 'lucide-react';
 import AlertQueue from './components/AlertQueue.jsx';
 import AgentWorkflow from './components/AgentWorkflow.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import EntityPanel from './components/EntityPanel.jsx';
+import UserPage from './pages/UserPage.jsx';
+import AssetPage from './pages/AssetPage.jsx';
 import { loadAlerts } from './services/csvService.js';
 
 const DEFAULT_SETTINGS = {
@@ -15,16 +19,32 @@ const DEFAULT_SETTINGS = {
   urlScanKey: '',
 };
 
+// ─── Top-level router ────────────────────────────────────────────────────────
 export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<MainApp />} />
+      <Route path="/alerts/:alertId" element={<MainApp />} />
+      <Route path="/users/:userId" element={<UserPage />} />
+      <Route path="/assets/:hostname" element={<AssetPage />} />
+    </Routes>
+  );
+}
+
+// ─── Main app layout ─────────────────────────────────────────────────────────
+function MainApp() {
+  const { alertId } = useParams();
+  const navigate = useNavigate();
+
   const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [activeView, setActiveView] = useState('queue'); // 'queue' | 'dashboard'
+  const [activeView, setActiveView] = useState('queue');
+  const [entityPanel, setEntityPanel] = useState(null); // { type: 'user'|'asset', id }
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('acme-soc-settings');
       if (saved) return { ...DEFAULT_SETTINGS, ...JSON.parse(saved) };
-      // One-time migration from original project's localStorage key
       const legacy = localStorage.getItem('mcg-soc-settings');
       if (legacy) {
         const parsed = { ...DEFAULT_SETTINGS, ...JSON.parse(legacy) };
@@ -40,7 +60,24 @@ export default function App() {
     loadAlerts().then(data => {
       setAlerts(data);
       setLoading(false);
+      if (alertId) {
+        const found = data.find(a => a.alert_id === alertId);
+        if (found) setSelectedAlert(found);
+      }
     });
+  }, []);
+
+  const handleSelectAlert = useCallback((alert) => {
+    setSelectedAlert(alert);
+    navigate(`/alerts/${alert.alert_id}`, { replace: true });
+    setActiveView('queue');
+  }, [navigate]);
+
+  // Toggle entity panel — clicking same entity again closes it
+  const handleEntityClick = useCallback((type, id) => {
+    setEntityPanel(prev =>
+      prev && prev.type === type && prev.id === id ? null : { type, id }
+    );
   }, []);
 
   const handleSaveSettings = useCallback((newSettings) => {
@@ -110,7 +147,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* API status pill */}
           {!hasApiKey && (
             <button
               onClick={() => setShowSettings(true)}
@@ -144,10 +180,11 @@ export default function App() {
               alerts={alerts}
               loading={loading}
               selectedAlert={selectedAlert}
-              onSelectAlert={setSelectedAlert}
+              onSelectAlert={handleSelectAlert}
+              onEntityClick={handleEntityClick}
             />
 
-            {/* Right: Agent workflow / triage panel */}
+            {/* Center: Triage panel */}
             <div className="flex-1 overflow-hidden">
               {selectedAlert ? (
                 <AgentWorkflow
@@ -155,16 +192,25 @@ export default function App() {
                   alert={selectedAlert}
                   settings={settings}
                   onOpenSettings={() => setShowSettings(true)}
+                  onEntityClick={handleEntityClick}
                 />
               ) : (
                 <EmptyState onOpenSettings={() => setShowSettings(true)} hasKey={hasApiKey} />
               )}
             </div>
+
+            {/* Right: Entity panel (slide in) */}
+            {entityPanel && (
+              <EntityPanel
+                entity={entityPanel}
+                onClose={() => setEntityPanel(null)}
+                onEntityClick={handleEntityClick}
+              />
+            )}
           </>
         )}
       </div>
 
-      {/* Settings modal */}
       {showSettings && (
         <SettingsModal
           settings={settings}

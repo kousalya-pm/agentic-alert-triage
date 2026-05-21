@@ -27,7 +27,7 @@ const VERDICT_CONFIG = {
 
 const PRIORITY_COLOR = { IMMEDIATE: 'text-red-400', SHORT_TERM: 'text-orange-400', MONITOR: 'text-blue-400' };
 
-export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
+export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [plan, setPlan] = useState(null);
   const [stepResults, setStepResults] = useState([]);
@@ -205,8 +205,18 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings }) {
             <p className="text-xs text-[#8b949e] mt-1 leading-relaxed line-clamp-2">{alert.description}</p>
             <div className="flex items-center gap-3 mt-2 text-[10px] text-[#7a9cc0] flex-wrap">
               {alert.timestamp && <span>🕐 {new Date(alert.timestamp).toLocaleString()}</span>}
-              {alert.user_id && <span>👤 {alert.user_id}</span>}
-              {alert.hostname && <span>💻 {alert.hostname}</span>}
+              {alert.user_id && (
+                <button
+                  onClick={() => onEntityClick?.('user', alert.user_id)}
+                  className="hover:text-[#00d4ff] transition-colors"
+                >👤 {alert.user_id}</button>
+              )}
+              {alert.hostname && (
+                <button
+                  onClick={() => onEntityClick?.('asset', alert.hostname)}
+                  className="hover:text-[#00d4ff] transition-colors"
+                >💻 {alert.hostname}</button>
+              )}
               {alert.src_ip && <span>📡 {alert.src_ip}</span>}
               {alert.mitre_tactic && <span>🎯 {alert.mitre_tactic} · {alert.mitre_technique}</span>}
             </div>
