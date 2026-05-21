@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Activity, TrendingDown, TrendingUp, Clock, Shield, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Target, RefreshCw } from 'lucide-react';
 import { loadCSV } from '../services/csvService.js';
 
@@ -371,7 +372,7 @@ export default function Dashboard({ alerts }) {
                       }`}>
                         {d.action === 'confirm_tp' ? '🔴' : d.action === 'mark_fp' ? '🟢' : '🟠'}
                       </span>
-                      <span className="text-[#8b949e] font-mono shrink-0">{d.alert_id}</span>
+                      <Link to={`/alerts/${d.alert_id}`} className="text-[#00d4ff] font-mono shrink-0 hover:text-white transition-colors">{d.alert_id}</Link>
                       <span className="text-[#7a9cc0]">{d.alert_category}</span>
                       {d.elapsed_seconds > 0 && (
                         <span className="ml-auto text-[10px] text-blue-400 shrink-0">{d.elapsed_seconds}s</span>

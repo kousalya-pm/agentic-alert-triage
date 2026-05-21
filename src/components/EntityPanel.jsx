@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { X, ExternalLink, Copy, Check, User, Monitor, AlertTriangle, ChevronRight } from 'lucide-react';
 import { lookupUser, lookupAsset, loadCSV } from '../services/csvService.js';
 
@@ -100,13 +101,17 @@ export default function EntityPanel({ entity, onClose, onEntityClick }) {
             </div>
             <div className="space-y-1.5">
               {relatedAlerts.map(a => (
-                <div key={a.alert_id} className="text-[10px] p-2 bg-[#0f1629] border border-[#1e2d4a] rounded-lg">
+                <Link
+                  key={a.alert_id}
+                  to={`/alerts/${a.alert_id}`}
+                  className="block text-[10px] p-2 bg-[#0f1629] border border-[#1e2d4a] rounded-lg hover:border-[#00d4ff]/40 hover:bg-[#0f1629]/80 transition-colors"
+                >
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className={`px-1.5 py-0.5 rounded border text-[9px] ${SEV[a.severity] || ''}`}>{a.severity}</span>
-                    <span className="text-[#7a9cc0] font-mono">{a.alert_id}</span>
+                    <span className="text-[#00d4ff] font-mono">{a.alert_id}</span>
                   </div>
                   <div className="text-[#e2eaf5] leading-snug line-clamp-2">{a.title}</div>
-                </div>
+                </Link>
               ))}
             </div>
           </div>

@@ -189,7 +189,11 @@ function AlertTable({ title, rows, historical }) {
             <div className="flex-1 min-w-0">
               <div className="text-xs text-white font-medium leading-snug">{a.title}</div>
               <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#7a9cc0]">
-                <span className="font-mono">{a.alert_id}</span>
+                {!historical ? (
+                  <Link to={`/alerts/${a.alert_id}`} className="font-mono text-[#00d4ff] hover:text-white transition-colors">{a.alert_id}</Link>
+                ) : (
+                  <span className="font-mono">{a.alert_id}</span>
+                )}
                 <span>·</span>
                 <span>{a.category}</span>
                 {a.timestamp && <><span>·</span><span>{new Date(a.timestamp).toLocaleDateString()}</span></>}
@@ -199,11 +203,6 @@ function AlertTable({ title, rows, historical }) {
                 )}
               </div>
             </div>
-            {!historical && (
-              <Link to={`/alerts/${a.alert_id}`} className="shrink-0">
-                <ExternalLink size={12} className="text-[#7a9cc0] hover:text-[#00d4ff]" />
-              </Link>
-            )}
           </div>
         ))}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
@@ -860,7 +861,7 @@ function ResultDisplay({ toolName, result }) {
           <div key={i} className="text-xs border border-[#30363d] rounded p-2 space-y-0.5">
             <div className="flex items-center gap-2">
               <span className={`font-medium ${a.verdict === 'True Positive' ? 'text-red-400' : 'text-green-400'}`}>{a.verdict}</span>
-              <span className="text-[#8b949e]">{a.alert_id}</span>
+              <Link to={`/alerts/${a.alert_id}`} className="text-[#00d4ff] hover:text-white transition-colors font-mono">{a.alert_id}</Link>
               <span className="text-[#7a9cc0]">{new Date(a.timestamp).toLocaleDateString()}</span>
             </div>
             <div className="text-[#8b949e]">{a.title}</div>
