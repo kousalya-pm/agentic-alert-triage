@@ -60,12 +60,18 @@ function MainApp() {
     loadAlerts().then(data => {
       setAlerts(data);
       setLoading(false);
-      if (alertId) {
-        const found = data.find(a => a.alert_id === alertId);
-        if (found) setSelectedAlert(found);
-      }
     });
   }, []);
+
+  // Select alert from URL — runs on initial load and whenever alertId changes
+  useEffect(() => {
+    if (!alertId || alerts.length === 0) return;
+    const found = alerts.find(a => a.alert_id === alertId);
+    if (found) {
+      setSelectedAlert(found);
+      setActiveView('queue');
+    }
+  }, [alertId, alerts]);
 
   const handleSelectAlert = useCallback((alert) => {
     setSelectedAlert(alert);
