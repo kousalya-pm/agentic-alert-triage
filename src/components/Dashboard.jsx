@@ -47,6 +47,42 @@ function KpiCard({ icon: Icon, iconColor, label, value, sub, trend, trendGood })
   );
 }
 
+// ─── Monthly trend bar chart ──────────────────────────────────────────────────
+function TrendChart({ data }) {
+  const maxTotal = Math.max(...data.map(d => d.tp + d.fp), 1);
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-end gap-1.5 h-28">
+        {data.map((d, i) => {
+          const total = d.tp + d.fp;
+          const barPct = (total / maxTotal) * 100;
+          const tpPct = total > 0 ? (d.tp / total) * 100 : 0;
+          const fpPct = 100 - tpPct;
+          return (
+            <div key={i} className="flex-1 flex flex-col justify-end h-full" title={`${d.label}: ${d.tp} TP, ${d.fp} FP`}>
+              <div className="w-full rounded-t-sm overflow-hidden flex flex-col-reverse" style={{ height: `${barPct}%` }}>
+                <div className="w-full bg-red-500/60 shrink-0" style={{ height: `${tpPct}%` }} />
+                <div className="w-full bg-green-500/50 shrink-0" style={{ height: `${fpPct}%` }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-1.5">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 text-center">
+            <span className="text-[8px] text-[#7a9cc0] block">{d.label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-4 text-[10px] text-[#7a9cc0]">
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-red-500/60" /> True Positive</span>
+        <span className="flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-sm bg-green-500/50" /> False Positive</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Horizontal bar chart ─────────────────────────────────────────────────────
 function HBarChart({ data, colorFn }) {
   const max = Math.max(...data.map(d => d.value), 1);
@@ -218,6 +254,34 @@ export default function Dashboard({ alerts }) {
   }, {});
   const topTactics = Object.entries(tacticCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+  // Monthly alert volume trend (historical)
+  const monthlyMap = pastAlerts.reduce((acc, a) => {
+    if (!a.timestamp) return acc;
+    const d = new Date(a.timestamp);
+    if (!isFinite(d)) return acc;
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+    if (!acc[key]) acc[key] = { label, tp: 0, fp: 0 };
+    if (a.verdict === 'True Positive') acc[key].tp++;
+    else if (a.verdict === 'False Positive') acc[key].fp++;
+    return acc;
+  }, {});
+  const trendData = Object.entries(monthlyMap)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v);
+
+  // Historical MITRE tactics (past_alerts)
+  const histTacticCounts = pastAlerts.reduce((acc, a) => {
+    if (a.mitre_tactic) acc[a.mitre_tactic] = (acc[a.mitre_tactic] || 0) + 1; return acc;
+  }, {});
+  const histTopTactics = Object.entries(histTacticCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+
+  // Historical category breakdown (TP only)
+  const histCatTP = pastAlerts.filter(a => a.verdict === 'True Positive').reduce((acc, a) => {
+    if (a.category) acc[a.category] = (acc[a.category] || 0) + 1; return acc;
+  }, {});
+  const histCatData = Object.entries(histCatTP).sort((a, b) => b[1] - a[1]).map(([label, value]) => ({ label, value }));
+
   // MTTR by category (historical)
   const mttrBycat = {};
   closedAlerts.forEach(a => {
@@ -324,7 +388,21 @@ export default function Dashboard({ alerts }) {
           </div>
         </div>
 
-        {/* ── Row 3: MTTR by category + Session decisions ── */}
+        {/* ── Row 3: Monthly trend + Historical category ── */}
+        <div className="grid grid-cols-3 gap-4">
+          <div className="col-span-2 bg-[#161b22] border border-[#30363d] rounded-xl p-4">
+            <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Alert Volume — Monthly Trend</h3>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Closed alerts by month (Nov 2023 – May 2024) — stacked by verdict</p>
+            <TrendChart data={trendData} />
+          </div>
+          <div className="col-span-1 bg-[#161b22] border border-[#30363d] rounded-xl p-4">
+            <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">True Positives by Category</h3>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Historical confirmed incidents</p>
+            <HBarChart data={histCatData} colorFn={(label) => catColor[label] || 'bg-gray-500'} />
+          </div>
+        </div>
+
+        {/* ── Row 5: MTTR by category + Session decisions ── */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">MTTR by Category</h3>
@@ -385,13 +463,13 @@ export default function Dashboard({ alerts }) {
           </div>
         </div>
 
-        {/* ── Row 4: MITRE tactics + Benchmark comparison ── */}
+        {/* ── Row 6: MITRE tactics (historical) + Benchmark comparison ── */}
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-4">
             <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-1">Top MITRE ATT&CK Tactics</h3>
-            <p className="text-[10px] text-[#7a9cc0] mb-4">Current open alert queue</p>
+            <p className="text-[10px] text-[#7a9cc0] mb-4">Historical closed alerts ({pastAlerts.length} total)</p>
             <div className="space-y-2">
-              {topTactics.map(([tactic, count], i) => (
+              {histTopTactics.map(([tactic, count], i) => (
                 <div key={tactic} className="flex items-center gap-3">
                   <span className="text-[10px] text-[#7a9cc0] w-4 text-right">{i + 1}</span>
                   <div className="flex-1 flex items-center gap-2">
@@ -399,7 +477,7 @@ export default function Dashboard({ alerts }) {
                     <div className="flex-1 h-1.5 bg-[#0d1117] rounded-full overflow-hidden">
                       <div
                         className="h-full bg-purple-500 rounded-full"
-                        style={{ width: `${(count / openAlerts.length) * 100}%` }}
+                        style={{ width: `${(count / pastAlerts.length) * 100}%` }}
                       />
                     </div>
                   </div>
