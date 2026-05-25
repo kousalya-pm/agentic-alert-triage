@@ -1,10 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users } from 'lucide-react';
+import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users, Link2 } from 'lucide-react';
 import AlertQueue from './components/AlertQueue.jsx';
 import AgentWorkflow from './components/AgentWorkflow.jsx';
 import AdaptiveWorkflow from './components/AdaptiveWorkflow.jsx';
 import ParallelAgentsWorkflow from './components/ParallelAgentsWorkflow.jsx';
+import ChainWorkflow from './components/ChainWorkflow.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EntityPanel from './components/EntityPanel.jsx';
@@ -228,6 +229,16 @@ function MainApp() {
                 >
                   <Users size={11} /> Parallel Agents
                 </button>
+                <button
+                  onClick={() => setTriageMode('chain')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    triageMode === 'chain'
+                      ? 'bg-[#1a130a] text-amber-400 border border-amber-500/30'
+                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
+                  }`}
+                >
+                  <Link2 size={11} /> Chain Triage
+                </button>
               </div>
 
               {selectedAlert ? (
@@ -242,6 +253,14 @@ function MainApp() {
                 ) : triageMode === 'parallel' ? (
                   <ParallelAgentsWorkflow
                     key={selectedAlert.alert_id + '-parallel'}
+                    alert={selectedAlert}
+                    settings={settings}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onEntityClick={handleEntityClick}
+                  />
+                ) : triageMode === 'chain' ? (
+                  <ChainWorkflow
+                    key={selectedAlert.alert_id + '-chain'}
                     alert={selectedAlert}
                     settings={settings}
                     onOpenSettings={() => setShowSettings(true)}

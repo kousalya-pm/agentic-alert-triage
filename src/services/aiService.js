@@ -324,6 +324,78 @@ function summarizeResult(toolName, result) {
   }
 }
 
+// ─── Chain mode: Tier 1 quick-scan routing decision ──────────────────────────
+export async function runQuickTriage(alert, earlyResults, settings) {
+  const prompt = `You are a Tier 1 SOC analyst performing rapid initial triage for Acme Corp. Based on minimal early scan data, decide whether to close or investigate this alert.
+
+ALERT:
+${JSON.stringify({
+  alert_id: alert.alert_id,
+  title: alert.title,
+  category: alert.category,
+  severity: alert.severity,
+  description: alert.description,
+  src_ip: alert.src_ip,
+  dst_ip: alert.dst_ip,
+  user_id: alert.user_id,
+  hostname: alert.hostname,
+  mitre_tactic: alert.mitre_tactic,
+  mitre_technique: alert.mitre_technique,
+}, null, 2)}
+
+QUICK SCAN RESULTS (${earlyResults.length} tool${earlyResults.length !== 1 ? 's' : ''}):
+${JSON.stringify(earlyResults, null, 2)}
+
+Route this alert to exactly one of:
+- CLOSE: Evidence clearly points to a false positive. No further investigation needed.
+- INVESTIGATE: Suspicious enough to warrant full deep investigation.
+
+Respond ONLY with valid JSON:
+{
+  "routing": "CLOSE|INVESTIGATE",
+  "rationale": "One concise sentence citing specific evidence from the scan results",
+  "confidence_pct": 75,
+  "key_indicators": ["up to 3 specific data points that drove this decision"]
+}`;
+
+  return callAI(prompt, settings, 400);
+}
+
+// ─── Chain mode: Tier 3 — plan additional corroborating steps ────────────────
+export async function planEscalationSteps(alert, intermediateVerdict, allStepResults, settings) {
+  const toolsAlreadyCalled = [...new Set(allStepResults.map(r => r.tool))];
+
+  const prompt = `You are planning a Tier 3 escalation review for a high-confidence security threat. Tier 2 investigation returned: ${intermediateVerdict.verdict} (${intermediateVerdict.confidence_pct}% confidence).
+
+ALERT: ${JSON.stringify({
+  alert_id: alert.alert_id, title: alert.title, category: alert.category,
+  severity: alert.severity, src_ip: alert.src_ip, dst_ip: alert.dst_ip,
+  user_id: alert.user_id, hostname: alert.hostname,
+}, null, 2)}
+
+TOOLS ALREADY CALLED: ${toolsAlreadyCalled.join(', ')}
+TIER 2 SUMMARY: ${intermediateVerdict.executive_summary}
+
+Select 1-2 additional corroborating steps using tools NOT in the already-called list above, that would definitively confirm or refute this verdict before escalation.
+
+Available tools: user_lookup, asset_lookup, siem_query, watchlist_check, ip_geo, whois, abuseipdb, virustotal_ip, virustotal_url, urlscan
+
+Respond ONLY with valid JSON:
+{
+  "steps": [
+    {
+      "tool": "tool_name",
+      "question": "What does this confirm?",
+      "parameters": {"param": "value"},
+      "rationale": "Why this tool adds value at this point"
+    }
+  ],
+  "escalation_focus": "One sentence: what specifically are we trying to confirm?"
+}`;
+
+  return callAI(prompt, settings, 600);
+}
+
 // ─── Core AI call dispatcher ──────────────────────────────────────────────────
 
 async function callAI(prompt, settings, maxTokens = MAX_TOKENS_PLAN) {
