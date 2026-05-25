@@ -138,6 +138,192 @@ Respond ONLY with valid JSON matching this exact schema:
   return callAI(prompt, settings, MAX_TOKENS_SUMMARY);
 }
 
+// ─── Parallel mode: Run one specialist agent ──────────────────────────────────
+// toolCallsWithResults = [{ tool, parameters, result }, ...]
+export async function runSpecialistAgent(alert, specialist, toolCallsWithResults, settings) {
+  // If specialist has no tools for this alert, return without an AI call
+  if (toolCallsWithResults.length === 0) {
+    return {
+      specialist: specialist.id,
+      relevant: false,
+      risk_contribution: 'LOW',
+      findings: ['No relevant indicators available for this specialist on this alert type.'],
+      key_iocs: [],
+      recommendation: 'No additional context from this domain for this alert.',
+      confidence: 0,
+    };
+  }
+
+  const prompt = `You are the ${specialist.name} in a 4-agent parallel SOC triage system for Acme Corp (financial services, ~500 employees, hybrid cloud). Your role is strictly limited to your domain.
+
+YOUR SPECIALTY: ${specialist.focus}
+
+ALERT:
+${JSON.stringify({
+  alert_id: alert.alert_id,
+  title: alert.title,
+  category: alert.category,
+  severity: alert.severity,
+  description: alert.description,
+  src_ip: alert.src_ip,
+  dst_ip: alert.dst_ip,
+  user_id: alert.user_id,
+  hostname: alert.hostname,
+  mitre_tactic: alert.mitre_tactic,
+  mitre_technique: alert.mitre_technique,
+}, null, 2)}
+
+YOUR TOOL RESULTS (${toolCallsWithResults.length} source${toolCallsWithResults.length > 1 ? 's' : ''}):
+${JSON.stringify(toolCallsWithResults, null, 2)}
+
+Analyse the alert strictly from your specialist perspective. Be concise and factual — another agent handles other domains.
+
+Respond ONLY with valid JSON:
+{
+  "specialist": "${specialist.id}",
+  "relevant": true,
+  "risk_contribution": "LOW|MEDIUM|HIGH|CRITICAL",
+  "findings": ["2-4 specific findings from YOUR domain only, referencing actual data from your tool results"],
+  "key_iocs": ["any indicators of compromise you identified"],
+  "recommendation": "One sentence: what the team should do based on YOUR findings",
+  "confidence": 85
+}`;
+
+  return callAI(prompt, settings, 1024);
+}
+
+// ─── Parallel mode: Orchestrator synthesises all specialist reports ────────────
+export async function synthesizeSpecialistReports(alert, specialistReports, settings) {
+  const prompt = `You are the Orchestrator in a 4-agent parallel SOC triage system for Acme Corp. Four specialist agents — Identity, Network, Threat Intel, and Endpoint — have independently investigated an alert. Synthesise their findings into a final verdict.
+
+ALERT:
+${JSON.stringify({
+  alert_id: alert.alert_id,
+  title: alert.title,
+  category: alert.category,
+  severity: alert.severity,
+  description: alert.description,
+  src_ip: alert.src_ip,
+  dst_ip: alert.dst_ip,
+  user_id: alert.user_id,
+  hostname: alert.hostname,
+  mitre_tactic: alert.mitre_tactic,
+}, null, 2)}
+
+SPECIALIST REPORTS:
+${JSON.stringify(specialistReports, null, 2)}
+
+Synthesise all specialist input. Where specialists disagree, explain the tension. Weight HIGH/CRITICAL specialist contributions more heavily.
+
+Respond ONLY with valid JSON:
+{
+  "verdict": "TRUE_POSITIVE|FALSE_POSITIVE|NEEDS_ESCALATION|INCONCLUSIVE",
+  "confidence_pct": 85,
+  "risk_score": 8.5,
+  "executive_summary": "2-3 sentences summarising what happened and what it means, referencing which specialist agents contributed key findings",
+  "key_findings": ["finding from Identity", "finding from Network", "finding from Threat Intel", "finding from Endpoint"],
+  "attack_narrative": "Paragraph describing the likely attack sequence, citing specialist evidence",
+  "mitre_assessment": { "tactic": "...", "technique": "T1XXX", "technique_name": "..." },
+  "recommended_actions": [{ "priority": "IMMEDIATE|SHORT_TERM|MONITOR", "action": "...", "owner": "..." }],
+  "escalation_required": true,
+  "escalation_reason": "...",
+  "analyst_notes": "Any specialist disagreements or caveats worth flagging"
+}`;
+
+  return callAI(prompt, settings, MAX_TOKENS_SUMMARY);
+}
+
+// ─── Call 2b (Adaptive mode): Check if a new step should be added ─────────────
+export async function checkForAdditionalSteps(alert, plan, stepResults, settings) {
+  const completedSteps = plan.investigation_steps
+    .slice(0, stepResults.length)
+    .map((step, i) => ({
+      tool: step.tool,
+      question: step.question,
+      key_findings: summarizeResult(step.tool, stepResults[i]),
+    }));
+
+  const remainingTools = plan.investigation_steps
+    .slice(stepResults.length)
+    .map(s => s.tool);
+
+  const prompt = `You are mid-investigation of a security alert. Decide if one more investigation step is warranted based on what you've found so far.
+
+ALERT (key fields):
+${JSON.stringify({
+  alert_id: alert.alert_id,
+  title: alert.title,
+  category: alert.category,
+  severity: alert.severity,
+  src_ip: alert.src_ip,
+  user_id: alert.user_id,
+  hostname: alert.hostname,
+  description: alert.description,
+}, null, 2)}
+
+COMPLETED STEPS AND KEY FINDINGS:
+${JSON.stringify(completedSteps, null, 2)}
+
+REMAINING PLANNED STEPS (tools): ${remainingTools.length > 0 ? remainingTools.join(', ') : 'none — this was the last step'}
+
+Should you add ONE additional investigation step based on these findings? Only say yes if:
+1. A finding revealed a new uninvestigated indicator (a second IP, a new domain, a related user, a file hash)
+2. A result was suspicious enough to warrant corroboration from a different source not already planned
+3. The step is NOT already covered by the remaining planned steps above
+
+Respond ONLY with valid JSON — no preamble, no explanation outside the JSON:
+{"add_step": false}
+OR
+{"add_step": true, "step": {"question": "What specific question does this answer?", "tool": "tool_name", "parameters": {"param": "value"}, "rationale": "Exactly which finding triggered this and why a second look matters"}}
+
+Available tools: user_lookup, asset_lookup, siem_query, watchlist_check, ip_geo, whois, abuseipdb, virustotal_ip, virustotal_url, urlscan`;
+
+  return callAI(prompt, settings, 600);
+}
+
+// Extracts a brief summary from a tool result for use in the re-planning prompt
+function summarizeResult(toolName, result) {
+  if (!result || result.error) return result?.error ? `Error: ${result.error}` : 'No result';
+  try {
+    if (toolName === 'user_lookup') {
+      if (!result.found) return 'User not found';
+      return `${result.full_name}, ${result.department}, risk=${result.risk_score}, status=${result.status}, mfa=${result.mfa_enabled}${result.notes ? `, notes: ${result.notes}` : ''}`;
+    }
+    if (toolName === 'asset_lookup') {
+      if (!result.found) return 'Asset not found';
+      return `${result.hostname}, criticality=${result.criticality}, patch=${result.patch_level}%, edr=${result.edr_installed}, critical_vulns=${result.open_vulns_critical}`;
+    }
+    if (toolName === 'siem_query') {
+      if (result.total_results === 0) return 'No prior alerts found';
+      const titles = result.alerts?.slice(0, 3).map(a => a.title).join('; ') || '';
+      return `${result.total_results} prior alert(s): ${titles}`;
+    }
+    if (toolName === 'watchlist_check') {
+      if (!result.matched) return 'Not on watchlist';
+      return `WATCHLIST HIT: ${result.hits?.map(h => `${h.threat_category} (${h.confidence})`).join(', ')}`;
+    }
+    if (toolName === 'ip_geo' || toolName === 'whois') {
+      const d = result.data || result;
+      return `${d.city || ''} ${d.country || ''} (${d.countryCode || '?'}), ISP: ${d.isp || '?'}, ASN: ${d.as || '?'}`;
+    }
+    if (toolName === 'abuseipdb') {
+      const d = result.data || {};
+      return `abuse_score=${d.abuseConfidenceScore}%, reports=${d.totalReports}, tor=${d.isTor}, country=${d.countryCode}`;
+    }
+    if (toolName === 'virustotal_ip') {
+      const s = result.data?.last_analysis_stats || {};
+      return `malicious=${s.malicious || 0}, suspicious=${s.suspicious || 0}, reputation=${result.data?.reputation ?? 'n/a'}`;
+    }
+    if (toolName === 'virustotal_url' || toolName === 'urlscan') {
+      const s = result.data?.last_analysis_stats || {};
+      return `malicious=${s.malicious ?? 'n/a'}, suspicious=${s.suspicious ?? 'n/a'}`;
+    }
+    return JSON.stringify(result).slice(0, 200);
+  } catch {
+    return 'Summary unavailable';
+  }
+}
+
 // ─── Core AI call dispatcher ──────────────────────────────────────────────────
 
 async function callAI(prompt, settings, maxTokens = MAX_TOKENS_PLAN) {

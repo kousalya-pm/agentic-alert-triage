@@ -6,7 +6,7 @@ import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
 import { saveRun, getRuns } from '../services/runHistoryService.js';
 
-const DECISIONS_KEY = 'acme-soc-decisions';
+export const DECISIONS_KEY = 'acme-soc-decisions';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }
@@ -19,14 +19,14 @@ function saveDecision(alertId, decision) {
 
 const PHASE = { IDLE: 'idle', PLANNING: 'planning', INVESTIGATING: 'investigating', SYNTHESIZING: 'synthesizing', DONE: 'done', ERROR: 'error' };
 
-const VERDICT_CONFIG = {
+export const VERDICT_CONFIG = {
   TRUE_POSITIVE:     { color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/30',    icon: XCircle,       label: 'True Positive' },
   FALSE_POSITIVE:    { color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/30',icon: CheckCircle,   label: 'False Positive' },
   NEEDS_ESCALATION:  { color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/30',icon: ArrowUpRight, label: 'Escalate' },
   INCONCLUSIVE:      { color: 'text-yellow-400', bg: 'bg-yellow-500/10 border-yellow-500/30',icon: HelpCircle,   label: 'Inconclusive' },
 };
 
-const PRIORITY_COLOR = { IMMEDIATE: 'text-red-400', SHORT_TERM: 'text-orange-400', MONITOR: 'text-blue-400' };
+export const PRIORITY_COLOR = { IMMEDIATE: 'text-red-400', SHORT_TERM: 'text-orange-400', MONITOR: 'text-blue-400' };
 
 export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
@@ -38,14 +38,14 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   const [expandedSteps, setExpandedSteps] = useState({});
   const [elapsed, setElapsed] = useState(0);
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
-  const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id));
+  const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'standard'));
   const [viewingRunId, setViewingRunId] = useState(null);
   const [escalationTicket, setEscalationTicket] = useState(null);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
 
-  const refreshHistory = () => setRunHistory(getRuns(alert.alert_id));
+  const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'standard'));
 
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
@@ -178,7 +178,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
       setPhase(PHASE.DONE);
       clearInterval(timerRef.current);
       const finalElapsed = Math.floor((Date.now() - startTime.current) / 1000);
-      saveRun(alert.alert_id, { plan: investigationPlan, stepResults: results, summary: finalSummary, elapsed: finalElapsed });
+      saveRun(alert.alert_id, { plan: investigationPlan, stepResults: results, summary: finalSummary, elapsed: finalElapsed, mode: 'standard' });
       refreshHistory();
 
     } catch (err) {
@@ -462,7 +462,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 }
 
 // ─── Escalation Ticket Modal ──────────────────────────────────────────────────
-function EscalationTicketModal({ ticket, onClose }) {
+export function EscalationTicketModal({ ticket, onClose }) {
   const [copied, setCopied] = useState(false);
 
   const copyTicketId = () => {
@@ -570,7 +570,7 @@ function EscalationTicketModal({ ticket, onClose }) {
   );
 }
 
-function TicketRow({ label, value, mono, highlight }) {
+export function TicketRow({ label, value, mono, highlight }) {
   const color = highlight === 'red' ? 'text-red-400' : highlight === 'orange' ? 'text-orange-400' :
     highlight === 'yellow' ? 'text-yellow-400' : 'text-[#e2eaf5]';
   return (
@@ -582,14 +582,14 @@ function TicketRow({ label, value, mono, highlight }) {
 }
 
 // ─── Run History Bar ─────────────────────────────────────────────────────────
-const VERDICT_SHORT = {
+export const VERDICT_SHORT = {
   TRUE_POSITIVE:    { label: 'TP',  color: 'text-red-400 border-red-500/40 bg-red-500/10' },
   FALSE_POSITIVE:   { label: 'FP',  color: 'text-green-400 border-green-500/40 bg-green-500/10' },
   NEEDS_ESCALATION: { label: 'ESC', color: 'text-orange-400 border-orange-500/40 bg-orange-500/10' },
   INCONCLUSIVE:     { label: '?',   color: 'text-yellow-400 border-yellow-500/40 bg-yellow-500/10' },
 };
 
-function RunHistoryBar({ runs, viewingRunId, onLoad, onNewRun, isRunning }) {
+export function RunHistoryBar({ runs, viewingRunId, onLoad, onNewRun, isRunning }) {
   return (
     <div className="shrink-0 px-5 py-2 border-b border-[#1e2d4a] bg-[#0a0f1e] flex items-center gap-2 overflow-x-auto">
       <div className="flex items-center gap-1.5 text-[10px] text-[#7a9cc0] shrink-0">
@@ -640,7 +640,7 @@ function RunHistoryBar({ runs, viewingRunId, onLoad, onNewRun, isRunning }) {
   );
 }
 
-function formatAge(timestamp) {
+export function formatAge(timestamp) {
   const diffMs = Date.now() - new Date(timestamp).getTime();
   const mins = Math.floor(diffMs / 60000);
   if (mins < 1) return 'just now';
@@ -651,7 +651,7 @@ function formatAge(timestamp) {
 }
 
 // ─── Analyst Action Buttons ───────────────────────────────────────────────────
-function AnalystActions({ decision, aiVerdict, onAction }) {
+export function AnalystActions({ decision, aiVerdict, onAction }) {
   const [showNoteFor, setShowNoteFor] = useState(null);
   const [note, setNote] = useState('');
   const noteRef = useRef(null);
@@ -813,7 +813,7 @@ function AnalystActions({ decision, aiVerdict, onAction }) {
 }
 
 // ─── Result display ───────────────────────────────────────────────────────────
-function ResultDisplay({ toolName, result }) {
+export function ResultDisplay({ toolName, result }) {
   if (result?.error) {
     return <p className="text-xs text-red-400">Error: {result.error}</p>;
   }
@@ -968,7 +968,7 @@ function ResultDisplay({ toolName, result }) {
   );
 }
 
-function Row({ label, value, highlight }) {
+export function Row({ label, value, highlight }) {
   const val = value === null || value === undefined ? '—' : String(value);
   const color = highlight === 'red' ? 'text-red-400' :
                 highlight === 'orange' ? 'text-orange-400' :
@@ -984,7 +984,7 @@ function Row({ label, value, highlight }) {
 }
 
 // ─── Summary / Verdict panel ──────────────────────────────────────────────────
-function SummaryPanel({ summary, elapsed }) {
+export function SummaryPanel({ summary, elapsed }) {
   const verdict = VERDICT_CONFIG[summary.verdict] || VERDICT_CONFIG.INCONCLUSIVE;
   const VIcon = verdict.icon;
 

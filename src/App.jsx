@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter } from 'lucide-react';
+import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users } from 'lucide-react';
 import AlertQueue from './components/AlertQueue.jsx';
 import AgentWorkflow from './components/AgentWorkflow.jsx';
+import AdaptiveWorkflow from './components/AdaptiveWorkflow.jsx';
+import ParallelAgentsWorkflow from './components/ParallelAgentsWorkflow.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
 import EntityPanel from './components/EntityPanel.jsx';
@@ -55,6 +57,7 @@ function MainApp() {
     } catch { return DEFAULT_SETTINGS; }
   });
   const [loading, setLoading] = useState(true);
+  const [triageMode, setTriageMode] = useState('standard');
 
   useEffect(() => {
     loadAlerts().then(data => {
@@ -191,15 +194,68 @@ function MainApp() {
             />
 
             {/* Center: Triage panel */}
-            <div className="flex-1 overflow-hidden">
+            <div className="flex-1 overflow-hidden flex flex-col">
+              {/* Mode selector tabs */}
+              <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-[#0a0f1e] border-b border-[#1e2d4a]">
+                <span className="text-[10px] text-[#4a6080] uppercase tracking-wider font-semibold mr-1">Mode</span>
+                <button
+                  onClick={() => setTriageMode('standard')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    triageMode === 'standard'
+                      ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]'
+                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
+                  }`}
+                >
+                  <Zap size={11} /> Standard Agent
+                </button>
+                <button
+                  onClick={() => setTriageMode('adaptive')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    triageMode === 'adaptive'
+                      ? 'bg-[#0d1f24] text-cyan-400 border border-cyan-500/30'
+                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
+                  }`}
+                >
+                  <GitMerge size={11} /> Adaptive Planning
+                </button>
+                <button
+                  onClick={() => setTriageMode('parallel')}
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                    triageMode === 'parallel'
+                      ? 'bg-[#150d24] text-violet-400 border border-violet-500/30'
+                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
+                  }`}
+                >
+                  <Users size={11} /> Parallel Agents
+                </button>
+              </div>
+
               {selectedAlert ? (
-                <AgentWorkflow
-                  key={selectedAlert.alert_id}
-                  alert={selectedAlert}
-                  settings={settings}
-                  onOpenSettings={() => setShowSettings(true)}
-                  onEntityClick={handleEntityClick}
-                />
+                triageMode === 'adaptive' ? (
+                  <AdaptiveWorkflow
+                    key={selectedAlert.alert_id + '-adaptive'}
+                    alert={selectedAlert}
+                    settings={settings}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onEntityClick={handleEntityClick}
+                  />
+                ) : triageMode === 'parallel' ? (
+                  <ParallelAgentsWorkflow
+                    key={selectedAlert.alert_id + '-parallel'}
+                    alert={selectedAlert}
+                    settings={settings}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onEntityClick={handleEntityClick}
+                  />
+                ) : (
+                  <AgentWorkflow
+                    key={selectedAlert.alert_id + '-standard'}
+                    alert={selectedAlert}
+                    settings={settings}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onEntityClick={handleEntityClick}
+                  />
+                )
               ) : (
                 <EmptyState onOpenSettings={() => setShowSettings(true)} hasKey={hasApiKey} />
               )}
