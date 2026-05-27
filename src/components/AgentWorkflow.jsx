@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X } from 'lucide-react';
+import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X, TrendingDown, Minus } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
 import { saveRun, getRuns } from '../services/runHistoryService.js';
+import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
 
@@ -37,6 +38,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   const [error, setError] = useState(null);
   const [expandedSteps, setExpandedSteps] = useState({});
   const [elapsed, setElapsed] = useState(0);
+  const [riskLabel, setRiskLabel] = useState('UNKNOWN');
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'standard'));
   const [viewingRunId, setViewingRunId] = useState(null);
@@ -55,12 +57,14 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     setPhase(PHASE.DONE);
     setError(null);
     setActiveStep(-1);
-    // Expand all steps so the historical run is fully visible
-    const expanded = {};
-    run.plan?.investigation_steps?.forEach((_, i) => { expanded[i] = true; });
-    setExpandedSteps(expanded);
+    setExpandedSteps({});
     setViewingRunId(run.runId);
     setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    // Recompute risk label from stored results
+    if (run.plan?.investigation_steps && run.stepResults) {
+      const toolResults = run.stepResults.map((r, j) => ({ tool: run.plan.investigation_steps[j]?.tool, result: r }));
+      setRiskLabel(computeRiskLevel(toolResults));
+    }
   };
 
   const startNewRun = () => {
@@ -72,6 +76,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     setError(null);
     setExpandedSteps({});
     setElapsed(0);
+    setRiskLabel('UNKNOWN');
   };
 
   const handleAnalystAction = (action, note = '') => {
@@ -148,6 +153,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     setError(null);
     setExpandedSteps({});
     setElapsed(0);
+    setRiskLabel('UNKNOWN');
     setAnalystDecision(null);
     startTime.current = Date.now();
 
@@ -161,11 +167,13 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
       const results = [];
       for (let i = 0; i < investigationPlan.investigation_steps.length; i++) {
         setActiveStep(i);
-        setExpandedSteps(prev => ({ ...prev, [i]: true }));
         const step = investigationPlan.investigation_steps[i];
         const result = await executeTool(step.tool, step.parameters, settings);
         results.push(result);
         setStepResults([...results]);
+        // Update live risk label after each tool completes
+        const toolResults = results.map((r, j) => ({ tool: investigationPlan.investigation_steps[j].tool, result: r }));
+        setRiskLabel(computeRiskLevel(toolResults));
         // Small delay for visual effect
         await new Promise(r => setTimeout(r, 300));
       }
@@ -224,6 +232,10 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Live risk label — shown when running or done */}
+            {(phase !== PHASE.IDLE || viewingRunId) && (
+              <RiskLevelBadge level={phase === PHASE.DONE || viewingRunId ? riskLabel : riskLabel} showScore={phase === PHASE.DONE || !!viewingRunId} aiScore={summary?.risk_score} />
+            )}
             {phase !== PHASE.IDLE && !viewingRunId && (
               <span className="text-xs text-[#7a9cc0] font-mono">{elapsed}s</span>
             )}
@@ -377,11 +389,14 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
                     <span className="text-xs font-semibold text-white">{toolMeta.label || step.tool}</span>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
                       toolMeta.category === 'external' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'
-                    }`}>{toolMeta.category === 'external' ? 'External API' : 'Internal'}</span>
-                    <span className="text-[10px] text-[#7a9cc0]">{toolMeta.source}</span>
+                    }`}>{toolMeta.category === 'external' ? 'External' : 'Internal'}</span>
                   </div>
-                  <p className="text-xs text-[#8b949e] mt-0.5 italic">"{step.question}"</p>
-                  <p className="text-xs text-[#7a9cc0] mt-0.5">{step.rationale}</p>
+                  {/* When done and collapsed: show 1-line summary. Otherwise show question. */}
+                  {isDone && !isExpanded && result ? (
+                    <p className="text-xs text-[#7a9cc0] mt-0.5 truncate">{oneLineSummary(step.tool, result)}</p>
+                  ) : (
+                    <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
+                  )}
                 </div>
 
                 {isDone && (
@@ -391,8 +406,8 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
                 )}
               </button>
 
-              {/* Parameters bar */}
-              {(isActive || isDone) && (
+              {/* Parameters bar — only when expanded or actively running */}
+              {(isActive || (isDone && isExpanded)) && (
                 <div className="px-3 pb-2 flex flex-wrap gap-1.5">
                   {Object.entries(step.parameters || {}).map(([k, v]) => (
                     <span key={k} className="font-mono text-[10px] px-2 py-0.5 bg-[#0d1117] border border-[#30363d] rounded text-[#8b949e]">
@@ -648,6 +663,24 @@ export function formatAge(timestamp) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ─── Risk Level Badge ─────────────────────────────────────────────────────────
+/**
+ * Displays a qualitative risk label that updates live during a run.
+ * When showScore is true and aiScore is provided, shows the AI numeric score.
+ */
+export function RiskLevelBadge({ level = 'UNKNOWN', showScore = false, aiScore = null }) {
+  const cfg = RISK_LEVEL_CONFIG[level] || RISK_LEVEL_CONFIG.UNKNOWN;
+  return (
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${cfg.bg} ${cfg.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
+      <span>{cfg.label}</span>
+      {showScore && aiScore != null && (
+        <span className="text-[10px] opacity-70 font-mono">· {aiScore}/10</span>
+      )}
+    </div>
+  );
 }
 
 // ─── Analyst Action Buttons ───────────────────────────────────────────────────

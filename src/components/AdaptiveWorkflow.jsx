@@ -8,8 +8,9 @@ import { saveRun, getRuns } from '../services/runHistoryService.js';
 import {
   DECISIONS_KEY, VERDICT_CONFIG, VERDICT_SHORT, PRIORITY_COLOR,
   EscalationTicketModal, RunHistoryBar, formatAge,
-  AnalystActions, ResultDisplay, SummaryPanel,
+  AnalystActions, ResultDisplay, SummaryPanel, RiskLevelBadge,
 } from './AgentWorkflow.jsx';
+import { computeRiskLevel, oneLineSummary } from '../services/riskHeuristic.js';
 
 // Max dynamic steps the agent can inject during a single run
 const MAX_DYNAMIC_STEPS = 2;
@@ -43,6 +44,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
   const [expandedSteps, setExpandedSteps] = useState({});
   const [elapsed, setElapsed] = useState(0);
   const [dynamicStepsAdded, setDynamicStepsAdded] = useState(0);
+  const [riskLabel, setRiskLabel] = useState('UNKNOWN');
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'adaptive'));
   const [viewingRunId, setViewingRunId] = useState(null);
@@ -61,12 +63,14 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setPhase(PHASE.DONE);
     setError(null);
     setActiveStep(-1);
-    const expanded = {};
-    run.plan?.investigation_steps?.forEach((_, i) => { expanded[i] = true; });
-    setExpandedSteps(expanded);
+    setExpandedSteps({});
     setViewingRunId(run.runId);
     setDynamicStepsAdded(run.plan?.investigation_steps?.filter(s => s.dynamic).length || 0);
     setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    if (run.plan?.investigation_steps && run.stepResults) {
+      const toolResults = run.stepResults.map((r, j) => ({ tool: run.plan.investigation_steps[j]?.tool, result: r }));
+      setRiskLabel(computeRiskLevel(toolResults));
+    }
   };
 
   const startNewRun = () => {
@@ -79,6 +83,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setExpandedSteps({});
     setElapsed(0);
     setDynamicStepsAdded(0);
+    setRiskLabel('UNKNOWN');
   };
 
   const handleAnalystAction = (action, note = '') => {
@@ -150,6 +155,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setExpandedSteps({});
     setElapsed(0);
     setDynamicStepsAdded(0);
+    setRiskLabel('UNKNOWN');
     setAnalystDecision(null);
     startTime.current = Date.now();
 
@@ -169,11 +175,13 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
 
       for (let i = 0; i < steps.length; i++) {
         setActiveStep(i);
-        setExpandedSteps(prev => ({ ...prev, [i]: true }));
 
         const result = await executeTool(steps[i].tool, steps[i].parameters, settings);
         results.push(result);
         setStepResults([...results]);
+        // Update live risk label after each tool completes
+        const toolResults = results.map((r, j) => ({ tool: steps[j].tool, result: r }));
+        setRiskLabel(computeRiskLevel(toolResults));
         await new Promise(r => setTimeout(r, 250));
 
         // ── Re-planning check (only while under cap) ──
@@ -269,6 +277,9 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {(phase !== PHASE.IDLE || viewingRunId) && (
+              <RiskLevelBadge level={riskLabel} showScore={phase === PHASE.DONE || !!viewingRunId} aiScore={summary?.risk_score} />
+            )}
             {phase !== PHASE.IDLE && !viewingRunId && (
               <span className="text-xs text-[#7a9cc0] font-mono">{elapsed}s</span>
             )}
@@ -452,10 +463,13 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
                         toolMeta.category === 'external'
                           ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                           : 'bg-green-500/10 text-green-400 border-green-500/20'
-                      }`}>{toolMeta.category === 'external' ? 'External API' : 'Internal'}</span>
-                      <span className="text-[10px] text-[#7a9cc0]">{toolMeta.source}</span>
+                      }`}>{toolMeta.category === 'external' ? 'External' : 'Internal'}</span>
                     </div>
-                    <p className="text-xs text-[#8b949e] mt-0.5 italic">"{step.question}"</p>
+                    {isDone && !isExpanded && result ? (
+                      <p className="text-xs text-[#7a9cc0] mt-0.5 truncate">{oneLineSummary(step.tool, result)}</p>
+                    ) : (
+                      <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
+                    )}
                     <p className="text-xs text-[#7a9cc0] mt-0.5">{step.rationale}</p>
                   </div>
 
@@ -466,8 +480,8 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
                   )}
                 </button>
 
-                {/* Parameters */}
-                {(isActive || isDone) && (
+                {/* Parameters — only when expanded or actively running */}
+                {(isActive || (isDone && isExpanded)) && (
                   <div className="px-3 pb-2 flex flex-wrap gap-1.5">
                     {Object.entries(step.parameters || {}).map(([k, v]) => (
                       <span key={k} className="font-mono text-[10px] px-2 py-0.5 bg-[#0d1117] border border-[#30363d] rounded text-[#8b949e]">

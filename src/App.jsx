@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users, Link2 } from 'lucide-react';
+import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users, Link2, ChevronDown } from 'lucide-react';
 import AlertQueue from './components/AlertQueue.jsx';
 import AgentWorkflow from './components/AgentWorkflow.jsx';
 import AdaptiveWorkflow from './components/AdaptiveWorkflow.jsx';
@@ -196,49 +196,56 @@ function MainApp() {
 
             {/* Center: Triage panel */}
             <div className="flex-1 overflow-hidden flex flex-col">
-              {/* Mode selector tabs */}
-              <div className="shrink-0 flex items-center gap-1 px-3 py-1.5 bg-[#0a0f1e] border-b border-[#1e2d4a]">
-                <span className="text-[10px] text-[#4a6080] uppercase tracking-wider font-semibold mr-1">Mode</span>
-                <button
-                  onClick={() => setTriageMode('standard')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                    triageMode === 'standard'
-                      ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]'
-                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                  }`}
-                >
-                  <Zap size={11} /> Standard Agent
-                </button>
-                <button
-                  onClick={() => setTriageMode('adaptive')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                    triageMode === 'adaptive'
-                      ? 'bg-[#0d1f24] text-cyan-400 border border-cyan-500/30'
-                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                  }`}
-                >
-                  <GitMerge size={11} /> Adaptive Planning
-                </button>
-                <button
-                  onClick={() => setTriageMode('parallel')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                    triageMode === 'parallel'
-                      ? 'bg-[#150d24] text-violet-400 border border-violet-500/30'
-                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                  }`}
-                >
-                  <Users size={11} /> Parallel Agents
-                </button>
-                <button
-                  onClick={() => setTriageMode('chain')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-                    triageMode === 'chain'
-                      ? 'bg-[#1a130a] text-amber-400 border border-amber-500/30'
-                      : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                  }`}
-                >
-                  <Link2 size={11} /> Chain Triage
-                </button>
+              {/* Mode selector — 4 cards */}
+              <div className="shrink-0 grid grid-cols-4 gap-px bg-[#1e2d4a] border-b border-[#1e2d4a]">
+                {[
+                  {
+                    id: 'standard',
+                    icon: <Zap size={13} />,
+                    label: 'Standard',
+                    sub: 'Plan → Execute → Synthesize',
+                    active: 'bg-[#0f1a2e] text-[#00d4ff] border-b-2 border-[#00d4ff]',
+                    idle: 'bg-[#0a0f1e] text-[#4a6080] hover:text-[#7a9cc0] hover:bg-[#0d1525]',
+                  },
+                  {
+                    id: 'adaptive',
+                    icon: <GitMerge size={13} />,
+                    label: 'Adaptive',
+                    sub: 'Re-plans mid-investigation',
+                    active: 'bg-[#0d1f24] text-cyan-400 border-b-2 border-cyan-500',
+                    idle: 'bg-[#0a0f1e] text-[#4a6080] hover:text-[#7a9cc0] hover:bg-[#0d1525]',
+                  },
+                  {
+                    id: 'parallel',
+                    icon: <Users size={13} />,
+                    label: 'Parallel',
+                    sub: '4 specialist agents at once',
+                    active: 'bg-[#150d24] text-violet-400 border-b-2 border-violet-500',
+                    idle: 'bg-[#0a0f1e] text-[#4a6080] hover:text-[#7a9cc0] hover:bg-[#0d1525]',
+                  },
+                  {
+                    id: 'chain',
+                    icon: <Link2 size={13} />,
+                    label: 'Chain',
+                    sub: 'Tier 1 → 2 → 3 escalation',
+                    active: 'bg-[#1a130a] text-amber-400 border-b-2 border-amber-500',
+                    idle: 'bg-[#0a0f1e] text-[#4a6080] hover:text-[#7a9cc0] hover:bg-[#0d1525]',
+                  },
+                ].map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setTriageMode(m.id)}
+                    className={`flex flex-col items-center gap-0.5 px-2 py-2 text-center transition-all ${
+                      triageMode === m.id ? m.active : m.idle
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                      {m.icon}
+                      {m.label}
+                    </div>
+                    <span className="text-[9px] opacity-60 leading-tight">{m.sub}</span>
+                  </button>
+                ))}
               </div>
 
               {selectedAlert ? (

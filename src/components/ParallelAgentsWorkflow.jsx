@@ -7,8 +7,9 @@ import { saveRun, getRuns } from '../services/runHistoryService.js';
 import {
   DECISIONS_KEY, VERDICT_CONFIG, VERDICT_SHORT,
   EscalationTicketModal, RunHistoryBar, formatAge,
-  AnalystActions, SummaryPanel,
+  AnalystActions, SummaryPanel, RiskLevelBadge,
 } from './AgentWorkflow.jsx';
+import { computeRiskLevel, oneLineSummary } from '../services/riskHeuristic.js';
 
 // ─── Specialist definitions ────────────────────────────────────────────────────
 
@@ -136,6 +137,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   const [summary, setSummary] = useState(null);
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
+  const [riskLabel, setRiskLabel] = useState('UNKNOWN');
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'parallel'));
   const [viewingRunId, setViewingRunId] = useState(null);
@@ -147,17 +149,19 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'parallel'));
 
   const loadHistoricalRun = (run) => {
-    if (run.agentStates) {
-      setAgentStates(run.agentStates);
-    } else {
-      setAgentStates(initAgentState);
-    }
+    const states = run.agentStates || initAgentState();
+    setAgentStates(states);
     setSummary(run.summary);
     setElapsed(run.elapsed);
     setPhase(PHASE.DONE);
     setError(null);
     setViewingRunId(run.runId);
     setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    // Recompute risk label from stored tool results
+    const allToolResults = Object.values(states).flatMap(s =>
+      (s.toolResults || []).map(tr => ({ tool: tr.tool, result: tr.result }))
+    );
+    if (allToolResults.length > 0) setRiskLabel(computeRiskLevel(allToolResults));
   };
 
   const startNewRun = () => {
@@ -167,6 +171,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     setSummary(null);
     setError(null);
     setElapsed(0);
+    setRiskLabel('UNKNOWN');
   };
 
   const handleAnalystAction = (action, note = '') => {
@@ -215,6 +220,16 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [agentStates, phase]);
 
+  // Update live risk label as each agent completes their tool calls
+  useEffect(() => {
+    const allToolResults = Object.values(agentStates).flatMap(s =>
+      (s.toolResults || []).map(tr => ({ tool: tr.tool, result: tr.result }))
+    );
+    if (allToolResults.length > 0) {
+      setRiskLabel(computeRiskLevel(allToolResults));
+    }
+  }, [agentStates]);
+
   const runTriage = async () => {
     if (!settings?.anthropicKey && !settings?.openaiKey) {
       setError('No AI API key configured. Please add your Anthropic or OpenAI key in Settings.');
@@ -227,6 +242,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     setSummary(null);
     setError(null);
     setElapsed(0);
+    setRiskLabel('UNKNOWN');
     setAnalystDecision(null);
 
     // Assign tools upfront — no AI call needed for planning
@@ -344,6 +360,9 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {(phase !== PHASE.IDLE || viewingRunId) && (
+              <RiskLevelBadge level={riskLabel} showScore={phase === PHASE.DONE || !!viewingRunId} aiScore={summary?.risk_score} />
+            )}
             {phase !== PHASE.IDLE && !viewingRunId && (
               <span className="text-xs text-[#7a9cc0] font-mono">{elapsed}s</span>
             )}
