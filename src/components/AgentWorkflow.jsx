@@ -357,87 +357,18 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
         )}
 
         {/* Step-by-step tool calls */}
-        {plan?.investigation_steps?.map((step, i) => {
-          const result = stepResults[i];
-          const isActive = activeStep === i;
-          const isDone = i < stepResults.length;
-          const isExpanded = expandedSteps[i];
-          const toolMeta = TOOLS[step.tool] || {};
-
-          return (
-            <div key={i} className={`border rounded-xl overflow-hidden transition-all tool-call-enter ${
-              isActive ? 'border-blue-500/50 bg-[#1c2128]' :
-              isDone ? 'border-[#30363d] bg-[#161b22]' :
-              'border-[#21262d] bg-[#0d1117] opacity-50'
-            }`}>
-              <button
-                onClick={() => isDone && toggleStep(i)}
-                className="w-full flex items-start gap-3 p-3 text-left"
-              >
-                {/* Step status icon */}
-                <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${
-                  isActive ? 'bg-blue-500/20 text-blue-400' :
-                  isDone ? 'bg-green-500/20 text-green-400' :
-                  'bg-[#30363d] text-[#8b949e]'
-                }`}>
-                  {isActive ? <span className="spinner" style={{width:12,height:12}} /> : isDone ? '✓' : i + 1}
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-base">{toolMeta.icon || '🔧'}</span>
-                    <span className="text-xs font-semibold text-white">{toolMeta.label || step.tool}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
-                      toolMeta.category === 'external' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-green-500/10 text-green-400 border-green-500/20'
-                    }`}>{toolMeta.category === 'external' ? 'External' : 'Internal'}</span>
-                  </div>
-                  {/* When done and collapsed: show 1-line summary. Otherwise show question. */}
-                  {isDone && !isExpanded && result ? (
-                    <p className="text-xs text-[#7a9cc0] mt-0.5 truncate">{oneLineSummary(step.tool, result)}</p>
-                  ) : (
-                    <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
-                  )}
-                </div>
-
-                {isDone && (
-                  <div className="shrink-0 text-[#7a9cc0]">
-                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  </div>
-                )}
-              </button>
-
-              {/* Parameters bar — only when expanded or actively running */}
-              {(isActive || (isDone && isExpanded)) && (
-                <div className="px-3 pb-2 flex flex-wrap gap-1.5">
-                  {Object.entries(step.parameters || {}).map(([k, v]) => (
-                    <span key={k} className="font-mono text-[10px] px-2 py-0.5 bg-[#0d1117] border border-[#30363d] rounded text-[#8b949e]">
-                      <span className="text-blue-400">{k}</span>=<span className="text-orange-300">{String(v)}</span>
-                    </span>
-                  ))}
-                  {result?.duration_ms && (
-                    <span className="text-[10px] text-[#7a9cc0] ml-auto flex items-center gap-0.5">
-                      <Clock size={10} />{result.duration_ms}ms
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Result panel */}
-              {isDone && isExpanded && result && (
-                <div className="px-3 pb-3">
-                  <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
-                    {result.simulated && (
-                      <div className="flex items-center gap-1.5 text-[10px] text-yellow-400 mb-2">
-                        <AlertTriangle size={10} /> Simulated response — add API key for real data
-                      </div>
-                    )}
-                    <ResultDisplay toolName={step.tool} result={result} />
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {plan?.investigation_steps?.map((step, i) => (
+          <ToolStepCard
+            key={i}
+            step={step}
+            index={i}
+            isActive={activeStep === i}
+            isDone={i < stepResults.length}
+            isExpanded={!!expandedSteps[i]}
+            result={stepResults[i]}
+            onToggle={() => toggleStep(i)}
+          />
+        ))}
 
         {/* Synthesizing */}
         {phase === PHASE.SYNTHESIZING && (
@@ -663,6 +594,117 @@ export function formatAge(timestamp) {
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
   return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// ─── Shared Tool Step Card ────────────────────────────────────────────────────
+/**
+ * Renders a single investigation step — collapsed by default, expands on click.
+ *
+ * Props:
+ *   step       — { tool, question, rationale, parameters, dynamic? }
+ *   index      — step number (0-based)
+ *   isActive   — currently executing
+ *   isDone     — result is available
+ *   isExpanded — user toggled open
+ *   result     — raw tool result object (may be null while pending/running)
+ *   onToggle   — called when the header row is clicked
+ *   isDynamic  — (Adaptive mode) cyan accent + "Added by agent" banner
+ */
+export function ToolStepCard({ step, index, isActive, isDone, isExpanded, result, onToggle, isDynamic = false }) {
+  const toolMeta = TOOLS[step.tool] || {};
+
+  const borderBg = isDynamic
+    ? isActive ? 'border-cyan-500/60 bg-[#0d1f24]'
+      : isDone ? 'border-cyan-500/30 bg-[#0d1a1f]'
+      :          'border-cyan-500/15 bg-[#0d1117] opacity-60'
+    : isActive  ? 'border-blue-500/50 bg-[#1c2128]'
+    : isDone    ? 'border-[#30363d] bg-[#161b22]'
+    :             'border-[#21262d] bg-[#0d1117] opacity-50';
+
+  const iconBg = isActive        ? 'bg-blue-500/20 text-blue-400'
+    : isDone && isDynamic        ? 'bg-cyan-500/20 text-cyan-400'
+    : isDone                     ? 'bg-green-500/20 text-green-400'
+    :                              'bg-[#30363d] text-[#8b949e]';
+
+  return (
+    <div className={`border rounded-xl overflow-hidden transition-all tool-call-enter ${borderBg}`}>
+
+      {/* Dynamic step badge — Adaptive mode only */}
+      {isDynamic && (
+        <div className="flex items-center gap-1.5 px-3 pt-2 pb-0">
+          <span className="text-[10px] text-cyan-400 font-semibold uppercase tracking-wider">✦ Added by agent</span>
+          <span className="text-[10px] text-[#7a9cc0]">— {step.rationale?.split('.')[0]}</span>
+        </div>
+      )}
+
+      {/* Header row — always visible, click to expand/collapse */}
+      <button
+        onClick={() => isDone && onToggle()}
+        className="w-full flex items-start gap-3 p-3 text-left"
+      >
+        {/* Status icon */}
+        <div className={`mt-0.5 w-6 h-6 rounded-full flex items-center justify-center shrink-0 text-xs font-bold ${iconBg}`}>
+          {isActive ? <span className="spinner" style={{ width: 12, height: 12 }} /> : isDone ? '✓' : index + 1}
+        </div>
+
+        {/* Tool label + summary line */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-base">{toolMeta.icon || '🔧'}</span>
+            <span className="text-xs font-semibold text-white">{toolMeta.label || step.tool}</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${
+              toolMeta.category === 'external'
+                ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
+                : 'bg-green-500/10 text-green-400 border-green-500/20'
+            }`}>{toolMeta.category === 'external' ? 'External' : 'Internal'}</span>
+          </div>
+          {/* Collapsed: 1-line result summary. Pending/active: the question. */}
+          {isDone && !isExpanded && result ? (
+            <p className="text-xs text-[#7a9cc0] mt-0.5 truncate">{oneLineSummary(step.tool, result)}</p>
+          ) : (
+            <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
+          )}
+        </div>
+
+        {/* Chevron */}
+        {isDone && (
+          <div className="shrink-0 text-[#7a9cc0]">
+            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </div>
+        )}
+      </button>
+
+      {/* Params bar — only when running or expanded */}
+      {(isActive || (isDone && isExpanded)) && (
+        <div className="px-3 pb-2 flex flex-wrap gap-1.5">
+          {Object.entries(step.parameters || {}).map(([k, v]) => (
+            <span key={k} className="font-mono text-[10px] px-2 py-0.5 bg-[#0d1117] border border-[#30363d] rounded text-[#8b949e]">
+              <span className="text-blue-400">{k}</span>=<span className="text-orange-300">{String(v)}</span>
+            </span>
+          ))}
+          {result?.duration_ms && (
+            <span className="text-[10px] text-[#7a9cc0] ml-auto flex items-center gap-0.5">
+              <Clock size={10} />{result.duration_ms}ms
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Expanded result panel */}
+      {isDone && isExpanded && result && (
+        <div className="px-3 pb-3">
+          <div className="bg-[#0d1117] border border-[#30363d] rounded-lg p-3">
+            {result.simulated && (
+              <div className="flex items-center gap-1.5 text-[10px] text-yellow-400 mb-2">
+                <AlertTriangle size={10} /> Simulated response — add API key for real data
+              </div>
+            )}
+            <ResultDisplay toolName={step.tool} result={result} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Risk Level Badge ─────────────────────────────────────────────────────────
