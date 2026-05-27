@@ -666,12 +666,25 @@ export function formatAge(timestamp) {
 }
 
 // ─── Risk Level Badge ─────────────────────────────────────────────────────────
+
+/** Derive a qualitative label from the AI's 0–10 score, used once the run is done. */
+function aiScoreToLevel(score) {
+  if (score == null) return null;
+  if (score >= 8) return 'CRITICAL';
+  if (score >= 5) return 'ELEVATED';
+  if (score >= 2) return 'SUSPICIOUS';
+  return 'UNKNOWN';
+}
+
 /**
  * Displays a qualitative risk label that updates live during a run.
- * When showScore is true and aiScore is provided, shows the AI numeric score.
+ * Once done (showScore=true + aiScore provided), the label is derived from the
+ * AI score so heuristic and AI verdict never contradict each other.
  */
 export function RiskLevelBadge({ level = 'UNKNOWN', showScore = false, aiScore = null }) {
-  const cfg = RISK_LEVEL_CONFIG[level] || RISK_LEVEL_CONFIG.UNKNOWN;
+  // When the run is complete and the AI returned a score, override the heuristic label
+  const displayLevel = (showScore && aiScore != null) ? (aiScoreToLevel(aiScore) || level) : level;
+  const cfg = RISK_LEVEL_CONFIG[displayLevel] || RISK_LEVEL_CONFIG.UNKNOWN;
   return (
     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${cfg.bg} ${cfg.color}`}>
       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${cfg.dot}`} />
