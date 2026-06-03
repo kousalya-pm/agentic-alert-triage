@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Shield, ArrowLeft, User, AlertTriangle, ExternalLink } from 'lucide-react';
 import { lookupUser, loadCSV } from '../services/csvService.js';
 import RiskTimeline from '../components/RiskTimeline.jsx';
+import KillChainStrip from '../components/KillChainStrip.jsx';
 
 export default function UserPage() {
   const { userId } = useParams();
@@ -108,6 +109,11 @@ export default function UserPage() {
             {/* Risk timeline */}
             <div className="mt-8">
               <RiskTimeline alerts={alerts} pastAlerts={pastAlerts} />
+            </div>
+
+            {/* Kill chain */}
+            <div className="mt-4">
+              <KillChainStrip alerts={alerts} pastAlerts={pastAlerts} />
             </div>
 
             {/* Alert history */}

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
+import { groupAlerts, groupSeverity, deriveIncidentTitle } from '../services/incidentService.js';
+import { CompactKillChain } from './KillChainStrip.jsx';
 
 function useDecisions() {
   const [decisions, setDecisions] = useState(() => {
@@ -17,38 +19,43 @@ function useDecisions() {
 
 const SEV_COLOR = {
   Critical: 'bg-red-500/15 text-red-400 border-red-500/30',
-  High: 'bg-orange-500/15 text-orange-400 border-orange-500/30',
-  Medium: 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
-  Low: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+  High:     'bg-orange-500/15 text-orange-400 border-orange-500/30',
+  Medium:   'bg-yellow-500/15 text-yellow-400 border-yellow-500/30',
+  Low:      'bg-blue-500/15 text-blue-400 border-blue-500/30',
 };
 const SEV_DOT = {
   Critical: 'bg-red-500',
-  High: 'bg-orange-500',
-  Medium: 'bg-yellow-500',
-  Low: 'bg-blue-400',
+  High:     'bg-orange-500',
+  Medium:   'bg-yellow-500',
+  Low:      'bg-blue-400',
 };
 const CAT_ICON = {
-  'Email': '📧',
-  'Network': '🌐',
-  'Identity': '🔐',
-  'DLP': '📁',
-  'Endpoint': '💻',
-  'Cloud': '☁️',
+  'Email': '📧', 'Network': '🌐', 'Identity': '🔐',
+  'DLP': '📁', 'Endpoint': '💻', 'Cloud': '☁️',
 };
 
+// ─── Main queue ────────────────────────────────────────────────────────────
+
 export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAlert, onEntityClick }) {
-  const [search, setSearch] = useState('');
+  const [search,    setSearch]    = useState('');
   const [filterSev, setFilterSev] = useState('All');
   const decisions = useDecisions();
 
   const filtered = alerts.filter(a => {
-    const matchSev = filterSev === 'All' || a.severity === filterSev;
+    const matchSev    = filterSev === 'All' || a.severity === filterSev;
     const matchSearch = !search ||
       a.title?.toLowerCase().includes(search.toLowerCase()) ||
       a.category?.toLowerCase().includes(search.toLowerCase()) ||
-      a.user_id?.toLowerCase().includes(search.toLowerCase());
+      a.user_id?.toLowerCase().includes(search.toLowerCase()) ||
+      a.hostname?.toLowerCase().includes(search.toLowerCase());
     return matchSev && matchSearch;
   });
+
+  const groups = groupAlerts(filtered);
+  const incidentCount = groups.filter(g => g.alerts.length > 1).length;
+  const countLabel = incidentCount > 0
+    ? `${incidentCount} incident${incidentCount !== 1 ? 's' : ''} · ${filtered.length} alerts`
+    : `${filtered.length} alerts`;
 
   return (
     <div className="w-80 shrink-0 flex flex-col border-r border-[#1e2d4a] bg-[#0a0f1e]">
@@ -56,7 +63,7 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
       <div className="px-3 pt-3 pb-2 border-b border-[#1e2d4a]">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-xs font-semibold text-[#7a9cc0] uppercase tracking-wider">Alert Queue</h2>
-          <span className="text-xs text-[#7a9cc0]">{filtered.length} alerts</span>
+          <span className="text-[10px] text-[#7a9cc0]">{countLabel}</span>
         </div>
 
         {/* Search */}
@@ -80,7 +87,7 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
                 filterSev === s
                   ? s === 'All'
                     ? 'bg-[#00d4ff]/10 border-[#00d4ff]/30 text-[#00d4ff]'
-                    : SEV_COLOR[s] + ' border'
+                    : SEV_COLOR[s]
                   : 'bg-transparent border-[#1e2d4a] text-[#7a9cc0] hover:border-[#2a3f63]'
               }`}
             >
@@ -90,14 +97,100 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
         </div>
       </div>
 
-      {/* Alert list */}
+      {/* List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center h-32 text-[#7a9cc0] text-xs">Loading alerts...</div>
-        ) : filtered.length === 0 ? (
+        ) : groups.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-[#7a9cc0] text-xs">No alerts match filter</div>
         ) : (
-          filtered.map(alert => (
+          groups.map(group =>
+            group.alerts.length > 1 ? (
+              <IncidentCard
+                key={group.key}
+                group={group}
+                selectedAlert={selectedAlert}
+                decisions={decisions}
+                onSelectAlert={onSelectAlert}
+                onEntityClick={onEntityClick}
+              />
+            ) : (
+              <AlertRow
+                key={group.alerts[0].alert_id}
+                alert={group.alerts[0]}
+                isSelected={selectedAlert?.alert_id === group.alerts[0].alert_id}
+                decision={decisions[group.alerts[0].alert_id] || null}
+                onClick={() => onSelectAlert(group.alerts[0])}
+                onEntityClick={onEntityClick}
+              />
+            )
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Incident card ─────────────────────────────────────────────────────────
+
+function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntityClick }) {
+  const hasSelected = group.alerts.some(a => a.alert_id === selectedAlert?.alert_id);
+  const [expanded, setExpanded] = useState(hasSelected);
+
+  // Auto-expand when a nested alert is selected
+  useEffect(() => {
+    if (hasSelected) setExpanded(true);
+  }, [hasSelected]);
+
+  const topSev = groupSeverity(group);
+  const title  = deriveIncidentTitle(group);
+
+  return (
+    <div className={`border-b border-[#1e2d4a] ${hasSelected ? 'bg-[#0a1628]' : ''}`}>
+      {/* Incident header */}
+      <div
+        role="button"
+        onClick={() => setExpanded(e => !e)}
+        className="w-full text-left px-3 py-2.5 hover:bg-[#0d1525] transition-colors cursor-pointer border-l-2 border-l-[#00d4ff]/40"
+      >
+        <div className="flex items-start justify-between gap-2 mb-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[9px] font-bold text-[#00d4ff] uppercase tracking-wider">
+              Incident
+            </span>
+            <span className="text-[9px] text-[#3a5070]">·</span>
+            <span className="text-[9px] text-[#7a9cc0]">{group.alerts.length} alerts</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded border ${SEV_COLOR[topSev]}`}>
+              {topSev}
+            </span>
+            <ChevronDown
+              size={12}
+              className={`text-[#4a6080] transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+            />
+          </div>
+        </div>
+
+        <p className="text-xs font-semibold text-white leading-snug mb-1">{title}</p>
+
+        {group.entityId && (
+          <button
+            className="text-[10px] text-[#7a9cc0] hover:text-[#00d4ff] transition-colors"
+            onClick={e => { e.stopPropagation(); onEntityClick?.(group.entityType, group.entityId); }}
+          >
+            {group.entityType === 'user' ? '👤' : '💻'} {group.entityId}
+          </button>
+        )}
+
+        {/* Mini kill chain */}
+        <CompactKillChain alerts={group.alerts} />
+      </div>
+
+      {/* Expanded alert rows */}
+      {expanded && (
+        <div className="bg-[#070b14] border-t border-[#1e2d4a]/60">
+          {group.alerts.map(alert => (
             <AlertRow
               key={alert.alert_id}
               alert={alert}
@@ -105,13 +198,16 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
               decision={decisions[alert.alert_id] || null}
               onClick={() => onSelectAlert(alert)}
               onEntityClick={onEntityClick}
+              nested
             />
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
+
+// ─── Decision badge ────────────────────────────────────────────────────────
 
 const DECISION_BADGE = {
   confirm_tp: { label: 'TP Confirmed', cls: 'bg-red-500/20 text-red-400 border-red-500/30' },
@@ -119,29 +215,31 @@ const DECISION_BADGE = {
   escalate:   { label: 'Escalated', cls: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
 };
 
-function AlertRow({ alert, isSelected, decision, onClick, onEntityClick }) {
-  const ts = alert.timestamp ? new Date(alert.timestamp) : null;
-  const timeStr = ts
-    ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    : '';
+// ─── Individual alert row ──────────────────────────────────────────────────
+
+function AlertRow({ alert, isSelected, decision, onClick, onEntityClick, nested = false }) {
+  const ts      = alert.timestamp ? new Date(alert.timestamp) : null;
+  const timeStr = ts ? ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-3 border-b border-[#1e2d4a] hover:bg-[#0f1629] transition-colors group ${
-        isSelected ? 'bg-[#0f1629] border-l-2 border-l-[#00d4ff]' : 'border-l-2 border-l-transparent'
-      }`}
+      className={`w-full text-left border-b border-[#1e2d4a]/60 hover:bg-[#0f1629] transition-colors group border-l-2 ${
+        isSelected
+          ? 'bg-[#0f1629] border-l-[#00d4ff]'
+          : 'border-l-transparent'
+      } ${nested ? 'px-4 py-2.5' : 'px-3 py-3'}`}
     >
       <div className="flex items-start justify-between gap-2 mb-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${SEV_DOT[alert.severity] || 'bg-gray-500'} ${alert.severity === 'Critical' ? 'pulse-dot' : ''}`} />
-          <span className="text-[10px] text-[#7a9cc0] shrink-0">{CAT_ICON[alert.category] || '🔔'} {alert.category}</span>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`text-[10px] px-1.5 py-0.5 rounded border ${SEV_COLOR[alert.severity] || ''}`}>
-            {alert.severity}
+          <span className="text-[10px] text-[#7a9cc0] shrink-0">
+            {CAT_ICON[alert.category] || '🔔'} {alert.category}
           </span>
         </div>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 ${SEV_COLOR[alert.severity] || ''}`}>
+          {alert.severity}
+        </span>
       </div>
 
       <p className="text-xs font-medium text-[#e2eaf5] leading-snug mb-1 line-clamp-2">{alert.title}</p>
@@ -165,9 +263,7 @@ function AlertRow({ alert, isSelected, decision, onClick, onEntityClick }) {
       </div>
 
       <div className="flex items-center justify-between mt-1">
-        {alert.alert_id && (
-          <span className="text-[10px] text-[#7a9cc0]">{alert.alert_id}</span>
-        )}
+        <span className="text-[10px] text-[#7a9cc0]">{alert.alert_id}</span>
         {decision && DECISION_BADGE[decision.action] && (
           <span className={`text-[9px] px-1.5 py-0.5 rounded border font-medium ${DECISION_BADGE[decision.action].cls}`}>
             {DECISION_BADGE[decision.action].label}
