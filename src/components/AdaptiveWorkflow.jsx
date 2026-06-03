@@ -34,7 +34,7 @@ const PHASE = {
   ERROR: 'error',
 };
 
-export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
+export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [plan, setPlan] = useState(null);
   const [stepResults, setStepResults] = useState([]);
@@ -243,6 +243,12 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
   const SEV_COLOR = { Critical: 'text-red-400', High: 'text-orange-400', Medium: 'text-yellow-400', Low: 'text-blue-400' };
   const isRunning = phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING ||
                     phase === PHASE.RECONSIDERING || phase === PHASE.SYNTHESIZING;
+  // Notify parent when this workflow starts/stops so the mode selector can lock
+  useEffect(() => {
+    onRunningChange?.(isRunning);
+    return () => onRunningChange?.(false);
+  }, [isRunning, onRunningChange]);
+
 
   return (
     <div className="flex flex-col h-full overflow-hidden">

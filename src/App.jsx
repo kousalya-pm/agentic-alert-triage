@@ -59,6 +59,7 @@ function MainApp() {
   });
   const [loading, setLoading] = useState(true);
   const [triageMode, setTriageMode] = useState('standard');
+  const [isTriageRunning, setIsTriageRunning] = useState(false);
 
   useEffect(() => {
     loadAlerts().then(data => {
@@ -79,6 +80,7 @@ function MainApp() {
 
   const handleSelectAlert = useCallback((alert) => {
     setSelectedAlert(alert);
+    setIsTriageRunning(false); // new alert always resets the running lock
     navigate(`/alerts/${alert.alert_id}`, { replace: true });
     setActiveView('queue');
   }, [navigate]);
@@ -231,21 +233,30 @@ function MainApp() {
                     active: 'bg-[#1a130a] text-amber-400 border-b-2 border-amber-500',
                     idle: 'bg-[#0a0f1e] text-[#4a6080] hover:text-[#7a9cc0] hover:bg-[#0d1525]',
                   },
-                ].map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => setTriageMode(m.id)}
-                    className={`flex flex-col items-center gap-0.5 px-2 py-2 text-center transition-all ${
-                      triageMode === m.id ? m.active : m.idle
-                    }`}
-                  >
-                    <div className="flex items-center gap-1.5 font-semibold text-[11px]">
-                      {m.icon}
-                      {m.label}
-                    </div>
-                    <span className="text-[9px] opacity-60 leading-tight">{m.sub}</span>
-                  </button>
-                ))}
+                ].map(m => {
+                  const isActive  = triageMode === m.id;
+                  const isLocked  = isTriageRunning && !isActive; // other tabs locked while running
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => !isLocked && setTriageMode(m.id)}
+                      title={isLocked ? 'A triage is running — finish or wait before switching mode' : undefined}
+                      className={`relative flex flex-col items-center gap-0.5 px-2 py-2 text-center transition-all ${
+                        isActive ? m.active : isLocked ? 'bg-[#0a0f1e] text-[#2a3f50] cursor-not-allowed' : m.idle
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 font-semibold text-[11px]">
+                        {m.icon}
+                        {m.label}
+                        {/* Pulse dot: shown on active tab while triage is running */}
+                        {isActive && isTriageRunning && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#00d4ff] pulse-dot" />
+                        )}
+                      </div>
+                      <span className="text-[9px] opacity-60 leading-tight">{m.sub}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {selectedAlert ? (
@@ -256,6 +267,7 @@ function MainApp() {
                     settings={settings}
                     onOpenSettings={() => setShowSettings(true)}
                     onEntityClick={handleEntityClick}
+                    onRunningChange={setIsTriageRunning}
                   />
                 ) : triageMode === 'parallel' ? (
                   <ParallelAgentsWorkflow
@@ -264,6 +276,7 @@ function MainApp() {
                     settings={settings}
                     onOpenSettings={() => setShowSettings(true)}
                     onEntityClick={handleEntityClick}
+                    onRunningChange={setIsTriageRunning}
                   />
                 ) : triageMode === 'chain' ? (
                   <ChainWorkflow
@@ -272,6 +285,7 @@ function MainApp() {
                     settings={settings}
                     onOpenSettings={() => setShowSettings(true)}
                     onEntityClick={handleEntityClick}
+                    onRunningChange={setIsTriageRunning}
                   />
                 ) : (
                   <AgentWorkflow
@@ -280,6 +294,7 @@ function MainApp() {
                     settings={settings}
                     onOpenSettings={() => setShowSettings(true)}
                     onEntityClick={handleEntityClick}
+                    onRunningChange={setIsTriageRunning}
                   />
                 )
               ) : (

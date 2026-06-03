@@ -131,7 +131,7 @@ const initAgentState = () =>
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
-export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
+export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [agentStates, setAgentStates] = useState(initAgentState);
   const [summary, setSummary] = useState(null);
@@ -333,6 +333,12 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
 
   const SEV_COLOR = { Critical: 'text-red-400', High: 'text-orange-400', Medium: 'text-yellow-400', Low: 'text-blue-400' };
   const isRunning = phase === PHASE.RUNNING || phase === PHASE.SYNTHESIZING;
+  // Notify parent when this workflow starts/stops so the mode selector can lock
+  useEffect(() => {
+    onRunningChange?.(isRunning);
+    return () => onRunningChange?.(false);
+  }, [isRunning, onRunningChange]);
+
   const allDone = SPECIALISTS.every(s => agentStates[s.id]?.status === 'done' || agentStates[s.id]?.status === 'error');
 
   return (

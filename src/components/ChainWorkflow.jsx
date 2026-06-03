@@ -44,7 +44,7 @@ function pickTier1Tools(alert) {
   return tools.slice(0, 2);
 }
 
-export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
+export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [tier1Results, setTier1Results] = useState([]);
   const [routing, setRouting] = useState(null);
@@ -221,6 +221,12 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
   }
 
   const isRunning = phase !== PHASE.IDLE && phase !== PHASE.DONE && phase !== PHASE.ERROR;
+  // Notify parent when this workflow starts/stops so the mode selector can lock
+  useEffect(() => {
+    onRunningChange?.(isRunning);
+    return () => onRunningChange?.(false);
+  }, [isRunning, onRunningChange]);
+
   const hasKey = settings.anthropicKey || settings.openaiKey;
   const tier1Active = phase !== PHASE.IDLE || tier1Results.length > 0;
   const tier2Active = [PHASE.T2_PLANNING, PHASE.T2_INVESTIGATING, PHASE.T2_SYNTHESIZING,

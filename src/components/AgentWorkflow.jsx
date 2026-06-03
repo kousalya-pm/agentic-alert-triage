@@ -45,7 +45,7 @@ export const VERDICT_CONFIG = {
 
 export const PRIORITY_COLOR = { IMMEDIATE: 'text-red-400', SHORT_TERM: 'text-orange-400', MONITOR: 'text-blue-400' };
 
-export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntityClick }) {
+export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [plan, setPlan] = useState(null);
   const [stepResults, setStepResults] = useState([]);
@@ -56,6 +56,13 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   const [elapsed, setElapsed] = useState(0);
   const [riskLabel, setRiskLabel] = useState('UNKNOWN');
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
+
+  // Notify parent when this workflow starts/stops running so the mode selector can lock
+  const isRunningNow = phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING;
+  useEffect(() => {
+    onRunningChange?.(isRunningNow);
+    return () => onRunningChange?.(false); // release lock when unmounted
+  }, [isRunningNow, onRunningChange]);
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'standard'));
   const [viewingRunId, setViewingRunId] = useState(null);
   const [escalationTicket, setEscalationTicket] = useState(null);
