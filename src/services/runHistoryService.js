@@ -6,6 +6,23 @@ function loadAll() {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}'); } catch { return {}; }
 }
 
+// One-time migration: remap old ALT-2024-xxx keys → ALT-2026-xxx
+// (alert IDs were shifted +2 years in the June 2026 data update)
+function migrateAlertIds() {
+  try {
+    const all = loadAll();
+    let changed = false;
+    const updated = {};
+    for (const [key, val] of Object.entries(all)) {
+      const newKey = key.replace(/^ALT-2024-/, 'ALT-2026-');
+      if (newKey !== key) changed = true;
+      updated[newKey] = val;
+    }
+    if (changed) localStorage.setItem(HISTORY_KEY, JSON.stringify(updated));
+  } catch {}
+}
+migrateAlertIds();
+
 // mode: 'standard' | 'adaptive' | 'parallel' | 'chain'
 // extras: any additional mode-specific data (e.g. agentStates for parallel)
 export function saveRun(alertId, { plan, stepResults, summary, elapsed, mode = 'standard', ...extras }) {
