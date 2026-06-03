@@ -11,9 +11,7 @@
 
 import { useState, useMemo, useRef, useEffect, useId } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { buildTimeline, currentScore, scoreDelta } from '../services/riskScoreService.js';
-
-const HALF_LIFE = 30; // Fixed: 30-day exponential decay half-life
+import { buildTimeline, currentScore, scoreDelta, HALF_LIFE } from '../services/riskScoreService.js';
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -314,7 +312,7 @@ export function RiskSparkline({ alerts = [], pastAlerts = [] }) {
 
   const allAlerts = useMemo(() => [...alerts, ...pastAlerts], [alerts, pastAlerts]);
   const timeline  = useMemo(
-    () => buildTimeline(allAlerts, { days: 30, halfLife: 14 }),
+    () => buildTimeline(allAlerts, { days: 90, halfLife: HALF_LIFE }),
     [allAlerts]
   );
 
@@ -350,7 +348,7 @@ export function RiskSparkline({ alerts = [], pastAlerts = [] }) {
     <div>
       {/* Score row */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-[#7a9cc0]">30-day risk trend</span>
+        <span className="text-[10px] text-[#7a9cc0]">90-day risk trend</span>
         <div className="flex items-center gap-1.5">
           {delta !== null && Math.abs(delta) > 0.5 && (
             <span className={`text-[9px] flex items-center gap-0.5 ${delta > 0 ? 'text-red-400' : 'text-green-400'}`}>
@@ -403,7 +401,7 @@ export function RiskSparkline({ alerts = [], pastAlerts = [] }) {
           <line x1={0} x2={W} y1={PAD.t + cH} y2={PAD.t + cH} stroke="#1e2d4a" strokeWidth={1} />
 
           {/* Date labels */}
-          <text x={1} y={H - 2} fontSize={8} fill="#3a5070">-30d</text>
+          <text x={1} y={H - 2} fontSize={8} fill="#3a5070">-90d</text>
           <text x={W - 1} y={H - 2} textAnchor="end" fontSize={8} fill="#3a5070">Today</text>
         </svg>
       </div>

@@ -20,11 +20,8 @@
 
 export const SEV_WEIGHTS = { Critical: 30, High: 20, Medium: 10, Low: 5 };
 
-export const DECAY_PRESETS = [
-  { key: 'fast',   label: '7d',  halfLife: 7,  desc: 'Aggressive — recent threats only' },
-  { key: 'medium', label: '14d', halfLife: 14, desc: 'Standard — 2-week memory (default)' },
-  { key: 'slow',   label: '30d', halfLife: 30, desc: 'Relaxed — month-long memory' },
-];
+/** Shared decay constant used by all risk score views (full chart + sparkline). */
+export const HALF_LIFE = 30;
 
 const MS_PER_DAY = 86_400_000;
 
