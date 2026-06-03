@@ -81,7 +81,7 @@ ${JSON.stringify(alertForPlan)}${incidentNote}
 
 Generate ${isIncident ? '6-8' : '4-6'} targeted steps. Keep rationale to 1-2 sentences.
 
-Respond ONLY with valid JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "alert_summary": "one sentence",
   "initial_risk_assessment": "LOW|MEDIUM|HIGH|CRITICAL",
@@ -141,7 +141,7 @@ ${resultsCompact.map(r => `[${r.tool}] ${r.question?.slice(0, 100)} → ${r.find
 
 Based on ALL the evidence gathered, provide your final analysis.
 
-Respond ONLY with valid JSON matching this exact schema:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "verdict": "TRUE_POSITIVE|FALSE_POSITIVE|NEEDS_ESCALATION|INCONCLUSIVE",
   "confidence_pct": 85,
@@ -214,7 +214,7 @@ ${JSON.stringify(toolCallsWithResults, null, 2)}
 
 Analyse the alert strictly from your specialist perspective. Be concise and factual — another agent handles other domains.
 
-Respond ONLY with valid JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "specialist": "${specialist.id}",
   "relevant": true,
@@ -251,7 +251,7 @@ ${JSON.stringify(specialistReports, null, 2)}
 
 Synthesise all specialist input. Where specialists disagree, explain the tension. Weight HIGH/CRITICAL specialist contributions more heavily.
 
-Respond ONLY with valid JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "verdict": "TRUE_POSITIVE|FALSE_POSITIVE|NEEDS_ESCALATION|INCONCLUSIVE",
   "confidence_pct": 85,
@@ -307,7 +307,7 @@ Should you add ONE additional investigation step based on these findings? Only s
 2. A result was suspicious enough to warrant corroboration from a different source not already planned
 3. The step is NOT already covered by the remaining planned steps above
 
-Respond ONLY with valid JSON — no preamble, no explanation outside the JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {"add_step": false}
 OR
 {"add_step": true, "step": {"question": "What specific question does this answer?", "tool": "tool_name", "parameters": {"param": "value"}, "rationale": "Exactly which finding triggered this and why a second look matters"}}
@@ -435,7 +435,7 @@ Route this alert to exactly one of:
 - CLOSE: Evidence clearly points to a false positive. No further investigation needed.
 - INVESTIGATE: Suspicious enough to warrant full deep investigation.
 
-Respond ONLY with valid JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "routing": "CLOSE|INVESTIGATE",
   "rationale": "One concise sentence citing specific evidence from the scan results",
@@ -465,7 +465,7 @@ Select 1-2 additional corroborating steps using tools NOT in the already-called 
 
 Available tools: user_lookup, asset_lookup, siem_query, watchlist_check, ip_geo, whois, abuseipdb, virustotal_ip, virustotal_url, urlscan
 
-Respond ONLY with valid JSON:
+Output a single raw JSON object. No preamble, no explanation, no markdown. Start your response with {:
 {
   "steps": [
     {
@@ -496,9 +496,6 @@ async function callClaude(prompt, settings, maxTokens) {
   const apiKey = settings?.anthropicKey;
   if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings to add your key.');
 
-  // Prefill the assistant turn with '{' — this forces Claude to begin JSON immediately
-  // without any preamble text ("Here is the plan:", schema echoing, etc.).
-  // The prefill character is NOT included in content[0].text, so we prepend it below.
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -512,10 +509,7 @@ async function callClaude(prompt, settings, maxTokens) {
       max_tokens: maxTokens,
       temperature: 0,
       system: SYSTEM_PROMPT,
-      messages: [
-        { role: 'user',      content: prompt },
-        { role: 'assistant', content: '{' },   // ← prefill: skip all preamble
-      ],
+      messages: [{ role: 'user', content: prompt }],
     }),
   });
 
@@ -534,8 +528,7 @@ async function callClaude(prompt, settings, maxTokens) {
     );
   }
 
-  // Prepend the prefilled '{' — the API returns only the continuation after it
-  const text = '{' + (data.content?.[0]?.text || '');
+  const text = data.content?.[0]?.text || '';
   return parseJSON(text);
 }
 
