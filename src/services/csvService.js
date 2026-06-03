@@ -21,10 +21,14 @@ export async function lookupAsset(hostname) {
   return assets.find(a => a.hostname === hostname || a.ip_address === hostname) || null;
 }
 
-export async function queryPastAlerts(userId, srcIp, limit = 5) {
+export async function queryPastAlerts(userId, srcIp, hostname = null, limit = 5) {
   const past = await loadCSV('past_alerts.csv');
   return past
-    .filter(a => (userId && a.user_id === userId) || (srcIp && a.src_ip === srcIp))
+    .filter(a =>
+      (userId   && a.user_id  === userId)  ||
+      (srcIp    && a.src_ip   === srcIp)   ||
+      (hostname && a.hostname === hostname)
+    )
     .slice(0, limit);
 }
 

@@ -186,10 +186,10 @@ async function runAssetLookup({ hostname }) {
   };
 }
 
-async function runSiemQuery({ user_id, src_ip }) {
-  const past = await queryPastAlerts(user_id, src_ip);
+async function runSiemQuery({ user_id, src_ip, hostname }) {
+  const past = await queryPastAlerts(user_id, src_ip, hostname);
   return {
-    query: { user_id, src_ip },
+    query: { user_id, src_ip, hostname },
     total_results: past.length,
     alerts: past.map(a => ({
       alert_id: a.alert_id,

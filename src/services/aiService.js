@@ -23,7 +23,7 @@ ALERT CATEGORIES YOU HANDLE:
 AVAILABLE INVESTIGATION TOOLS (tool_name → required parameters):
 - user_lookup      params: { "user_id": "<string>" }          — AD profile, risk score, account status
 - asset_lookup     params: { "hostname": "<string>" }          — CMDB device details, criticality, patch level
-- siem_query       params: { "user_id": "<string>", "src_ip": "<string>" }  — past Sentinel alerts for user or IP
+- siem_query       params: { "user_id": "<string>", "src_ip": "<string>", "hostname": "<string>" }  — past Sentinel alerts; search by any combination of user, IP, or hostname
 - watchlist_check  params: { "indicator": "<ip|domain|email>" } — internal threat intelligence watchlist
 - ip_geo           params: { "ip": "<string>" }                — country, city, ISP (ip-api.com)
 - whois            params: { "ip": "<string>" }                — WHOIS/ASN registration info

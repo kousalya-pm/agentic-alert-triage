@@ -177,7 +177,7 @@ export function buildIncidentAlert(incident) {
     alertLines;
 
   return {
-    alert_id:        `INC-${Date.now()}`,
+    alert_id:        `INC-${incident.key}`,   // stable — same key every click, enables run history
     timestamp:       primary.timestamp,
     severity:        groupSeverity(incident),
     category:        'Incident',
