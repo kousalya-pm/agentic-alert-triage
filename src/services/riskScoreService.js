@@ -7,15 +7,11 @@
  *   score(T) = Σ weight(alertᵢ) × 0.5^(days_since_alertᵢ / halfLifeDays)
  *
  * Key rules:
- *  • Open alerts (no verdict) → FULL weight, no decay while unresolved
- *  • Resolved True Positives  → exponential decay from alert timestamp
- *  • False Positives          → weight = 0 (excluded from score)
+ *  • Open alerts (no decision)      → FULL weight, no decay
+ *  • Analyst confirmed FALSE_POSITIVE → weight = 0 immediately
+ *  • Analyst confirmed TRUE_POSITIVE  → decay begins from decision timestamp
+ *  • Resolved past alerts (CSV verdict) → decay from alert timestamp
  *  • Score is capped at 100
- *
- * Half-life presets (3-way toggle in UI):
- *  fast   7d  — Aggressive: only very recent threats matter
- *  medium 14d — Standard: 2-week memory (default)
- *  slow   30d — Relaxed: month-long memory
  */
 
 export const SEV_WEIGHTS = { Critical: 30, High: 20, Medium: 10, Low: 5 };
@@ -30,21 +26,23 @@ const MS_PER_DAY = 86_400_000;
  *
  * @param {Array}  allAlerts  Combined open + past alerts for this entity
  * @param {object} opts
- * @param {number} opts.days      Number of days to look back (default 90)
- * @param {number} opts.halfLife  Exponential decay half-life in days (default 14)
+ * @param {number} opts.days      Days to look back (default 90)
+ * @param {number} opts.halfLife  Decay half-life in days (default HALF_LIFE)
+ * @param {object} opts.decisions Analyst decisions map { alertId → decision }
+ *                                from localStorage 'acme-soc-decisions'
  * @returns {Array<{ date: Date, score: number, dayAlerts: Array }>}
  */
-export function buildTimeline(allAlerts, { days = 90, halfLife = 14 } = {}) {
+export function buildTimeline(allAlerts, { days = 90, halfLife = HALF_LIFE, decisions = {} } = {}) {
   const now = Date.now();
 
-  // Pre-parse and categorise alerts
+  // Pre-parse — exclude CSV-level False Positives upfront
   const parsed = allAlerts
     .map(a => ({
       ...a,
       ts: new Date(a.timestamp).getTime(),
       weight: SEV_WEIGHTS[a.severity] || 5,
       isFP: a.verdict === 'False Positive',
-      isOpen: !a.verdict, // open = no verdict yet
+      isOpen: !a.verdict, // open = no verdict from CSV
     }))
     .filter(a => !isNaN(a.ts) && !a.isFP);
 
@@ -53,22 +51,38 @@ export function buildTimeline(allAlerts, { days = 90, halfLife = 14 } = {}) {
   for (let i = days; i >= 0; i--) {
     const T = now - i * MS_PER_DAY;
 
-    // Score at time T
     let score = 0;
     for (const a of parsed) {
-      if (a.ts > T) continue; // alert hasn't occurred yet at time T
+      if (a.ts > T) continue;
 
       if (a.isOpen) {
-        // Unresolved — stays at full weight (active threat)
-        score += a.weight;
+        // Check analyst decision for this open alert
+        const dec = decisions[a.alert_id];
+
+        if (dec?.action === 'false_positive') {
+          // Analyst confirmed FP — remove from score entirely
+          continue;
+        } else if (dec?.action === 'confirm_tp') {
+          // Analyst closed as TP — decay begins from decision timestamp
+          const closedTs = new Date(dec.timestamp).getTime();
+          if (T < closedTs) {
+            score += a.weight;           // before close: still full weight
+          } else {
+            const daysElapsed = (T - closedTs) / MS_PER_DAY;
+            score += a.weight * Math.pow(0.5, daysElapsed / halfLife);
+          }
+        } else {
+          // No decision yet (or escalated) — active, full weight
+          score += a.weight;
+        }
       } else {
-        // Resolved — decay exponentially from alert timestamp
+        // Resolved past alert — decay from alert timestamp
         const daysElapsed = (T - a.ts) / MS_PER_DAY;
         score += a.weight * Math.pow(0.5, daysElapsed / halfLife);
       }
     }
 
-    // Alerts that fired on this calendar day (for dot markers)
+    // Alert dot markers for this calendar day
     const dayAlerts = allAlerts.filter(a => {
       const ts = new Date(a.timestamp).getTime();
       return ts >= T - MS_PER_DAY / 2 && ts < T + MS_PER_DAY / 2;

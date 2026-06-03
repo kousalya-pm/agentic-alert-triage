@@ -395,7 +395,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         {/* Final verdict */}
         {finalSummary && phase === PHASE.DONE && (
           <div className="space-y-3 pt-1">
-            <SummaryPanel summary={finalSummary} elapsed={elapsed} />
+            <SummaryPanel summary={finalSummary} elapsed={elapsed} alertId={alert.alert_id} />
             <AnalystActions decision={analystDecision} aiVerdict={finalSummary.verdict} onAction={handleAction} />
           </div>
         )}

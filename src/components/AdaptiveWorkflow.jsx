@@ -458,7 +458,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
 
         {/* Final summary */}
         {summary && phase === PHASE.DONE && (
-          <SummaryPanel summary={summary} elapsed={elapsed} />
+          <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
         {/* Analyst actions */}

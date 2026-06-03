@@ -54,6 +54,21 @@ function useContainerWidth(ref) {
   return width;
 }
 
+// Reads analyst decisions from localStorage and re-derives when any decision changes.
+function useDecisions() {
+  const [decisions, setDecisions] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('acme-soc-decisions') || '{}'); } catch { return {}; }
+  });
+  useEffect(() => {
+    const refresh = () => {
+      try { setDecisions(JSON.parse(localStorage.getItem('acme-soc-decisions') || '{}')); } catch {}
+    };
+    window.addEventListener('soc-decisions-updated', refresh);
+    return () => window.removeEventListener('soc-decisions-updated', refresh);
+  }, []);
+  return decisions;
+}
+
 // ─── Full Timeline Chart ───────────────────────────────────────────────────────
 
 export default function RiskTimeline({ alerts = [], pastAlerts = [] }) {
@@ -64,10 +79,11 @@ export default function RiskTimeline({ alerts = [], pastAlerts = [] }) {
   const [days,  setDays]  = useState(90);
   const [hover, setHover] = useState(null); // { i, x, y, point }
 
+  const decisions = useDecisions();
   const allAlerts = useMemo(() => [...alerts, ...pastAlerts], [alerts, pastAlerts]);
   const timeline  = useMemo(
-    () => buildTimeline(allAlerts, { days, halfLife: HALF_LIFE }),
-    [allAlerts, days]
+    () => buildTimeline(allAlerts, { days, halfLife: HALF_LIFE, decisions }),
+    [allAlerts, days, decisions]
   );
 
   const score = currentScore(timeline);
@@ -310,10 +326,11 @@ export function RiskSparkline({ alerts = [], pastAlerts = [] }) {
   const containerRef = useRef(null);
   const svgWidth   = useContainerWidth(containerRef);
 
+  const decisions = useDecisions();
   const allAlerts = useMemo(() => [...alerts, ...pastAlerts], [alerts, pastAlerts]);
   const timeline  = useMemo(
-    () => buildTimeline(allAlerts, { days: 90, halfLife: HALF_LIFE }),
-    [allAlerts]
+    () => buildTimeline(allAlerts, { days: 90, halfLife: HALF_LIFE, decisions }),
+    [allAlerts, decisions]
   );
 
   const score = currentScore(timeline);

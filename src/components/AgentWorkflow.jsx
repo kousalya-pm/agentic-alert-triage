@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X, TrendingDown, Minus } from 'lucide-react';
+import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowUpRight, Clock, ThumbsUp, ThumbsDown, TrendingUp, MessageSquare, User, FileDown, History, RotateCcw, Ticket, Copy, X, TrendingDown, Minus, Check } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
@@ -8,6 +8,7 @@ import { saveRun, getRuns } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
+const ACTIONS_KEY = 'acme-soc-action-checks';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }
@@ -16,6 +17,21 @@ function saveDecision(alertId, decision) {
   const all = loadDecisions();
   all[alertId] = decision;
   localStorage.setItem(DECISIONS_KEY, JSON.stringify(all));
+}
+
+// ── Action-check helpers ──────────────────────────────────────────────────────
+function loadActionChecks(alertId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIONS_KEY) || '{}');
+    return all[alertId] || {};
+  } catch { return {}; }
+}
+function saveActionChecks(alertId, checks) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ACTIONS_KEY) || '{}');
+    all[alertId] = checks;
+    localStorage.setItem(ACTIONS_KEY, JSON.stringify(all));
+  } catch {}
 }
 
 const PHASE = { IDLE: 'idle', PLANNING: 'planning', INVESTIGATING: 'investigating', SYNTHESIZING: 'synthesizing', DONE: 'done', ERROR: 'error' };
@@ -382,7 +398,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 
         {/* Final Summary */}
         {summary && phase === PHASE.DONE && (
-          <SummaryPanel summary={summary} elapsed={elapsed} />
+          <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
         {/* Analyst Action Buttons */}
@@ -1072,9 +1088,24 @@ export function Row({ label, value, highlight }) {
 }
 
 // ─── Summary / Verdict panel ──────────────────────────────────────────────────
-export function SummaryPanel({ summary, elapsed }) {
+export function SummaryPanel({ summary, elapsed, alertId }) {
   const verdict = VERDICT_CONFIG[summary.verdict] || VERDICT_CONFIG.INCONCLUSIVE;
   const VIcon = verdict.icon;
+
+  const [actionChecks, setActionChecks] = useState(() => loadActionChecks(alertId));
+
+  const toggleCheck = (index) => {
+    const current = actionChecks[index];
+    const updated = {
+      ...actionChecks,
+      [index]: current?.checked ? null : { checked: true, at: new Date().toISOString() },
+    };
+    setActionChecks(updated);
+    saveActionChecks(alertId, updated);
+  };
+
+  const doneCount = Object.values(actionChecks).filter(c => c?.checked).length;
+  const totalCount = summary.recommended_actions?.length ?? 0;
 
   return (
     <div className="border border-[#30363d] rounded-xl overflow-hidden tool-call-enter">
@@ -1148,23 +1179,64 @@ export function SummaryPanel({ summary, elapsed }) {
         )}
 
         {/* Recommended actions */}
-        {summary.recommended_actions?.length > 0 && (
+        {totalCount > 0 && (
           <div>
-            <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider mb-2">Recommended Actions</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Recommended Actions</h3>
+              {doneCount > 0 && (
+                <span className="text-[10px] text-green-400">
+                  {doneCount}/{totalCount} actioned
+                </span>
+              )}
+            </div>
             <div className="space-y-2">
-              {summary.recommended_actions.map((a, i) => (
-                <div key={i} className="flex items-start gap-2.5 p-2.5 bg-[#0d1117] border border-[#30363d] rounded-lg">
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
-                    a.priority === 'IMMEDIATE' ? 'bg-red-500/20 text-red-400' :
-                    a.priority === 'SHORT_TERM' ? 'bg-orange-500/20 text-orange-400' :
-                    'bg-blue-500/20 text-blue-400'
-                  }`}>{a.priority}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-[#e6edf3]">{a.action}</p>
-                    <p className="text-[10px] text-[#7a9cc0] mt-0.5">Owner: {a.owner}</p>
+              {summary.recommended_actions.map((a, i) => {
+                const check = actionChecks[i];
+                const isDone = !!check?.checked;
+                return (
+                  <div key={i} className={`flex items-start gap-2.5 p-2.5 rounded-lg border transition-all ${
+                    isDone
+                      ? 'bg-green-500/5 border-green-500/20 opacity-60'
+                      : 'bg-[#0d1117] border-[#30363d]'
+                  }`}>
+                    {/* Checkbox */}
+                    <button
+                      onClick={() => toggleCheck(i)}
+                      title={isDone ? 'Mark as not done' : 'Mark as actioned'}
+                      className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                        isDone
+                          ? 'bg-green-500/20 border-green-500/50'
+                          : 'border-[#4a6080] hover:border-green-500/50 hover:bg-green-500/10'
+                      }`}
+                    >
+                      {isDone && <Check size={10} className="text-green-400" />}
+                    </button>
+                    {/* Priority badge */}
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      a.priority === 'IMMEDIATE'  ? 'bg-red-500/20 text-red-400' :
+                      a.priority === 'SHORT_TERM' ? 'bg-orange-500/20 text-orange-400' :
+                                                    'bg-blue-500/20 text-blue-400'
+                    }`}>{a.priority}</span>
+                    {/* Action text + audit trail */}
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-xs ${isDone ? 'line-through text-[#4a6080]' : 'text-[#e6edf3]'}`}>
+                        {a.action}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[#7a9cc0]">
+                        <span>Owner: {a.owner}</span>
+                        {isDone && check?.at && (
+                          <>
+                            <span className="text-[#30363d]">·</span>
+                            <span className="text-green-400">
+                              ✓ Actioned {new Date(check.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

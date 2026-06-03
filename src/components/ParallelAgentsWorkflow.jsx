@@ -589,7 +589,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
 
         {/* ── Final verdict ── */}
         {summary && phase === PHASE.DONE && (
-          <SummaryPanel summary={summary} elapsed={elapsed} />
+          <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
         {/* ── Analyst actions ── */}
