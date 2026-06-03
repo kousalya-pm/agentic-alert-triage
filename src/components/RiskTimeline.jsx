@@ -11,7 +11,9 @@
 
 import { useState, useMemo, useRef, useEffect, useId } from 'react';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { buildTimeline, currentScore, scoreDelta, DECAY_PRESETS } from '../services/riskScoreService.js';
+import { buildTimeline, currentScore, scoreDelta } from '../services/riskScoreService.js';
+
+const HALF_LIFE = 30; // Fixed: 30-day exponential decay half-life
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -61,14 +63,13 @@ export default function RiskTimeline({ alerts = [], pastAlerts = [] }) {
   const containerRef = useRef(null);
   const svgWidth   = useContainerWidth(containerRef);
 
-  const [halfLife, setHalfLife] = useState(14);
-  const [days,     setDays]     = useState(90);
-  const [hover,    setHover]    = useState(null); // { i, x, y, point }
+  const [days,  setDays]  = useState(90);
+  const [hover, setHover] = useState(null); // { i, x, y, point }
 
   const allAlerts = useMemo(() => [...alerts, ...pastAlerts], [alerts, pastAlerts]);
   const timeline  = useMemo(
-    () => buildTimeline(allAlerts, { days, halfLife }),
-    [allAlerts, days, halfLife]
+    () => buildTimeline(allAlerts, { days, halfLife: HALF_LIFE }),
+    [allAlerts, days]
   );
 
   const score = currentScore(timeline);
@@ -145,40 +146,19 @@ export default function RiskTimeline({ alerts = [], pastAlerts = [] }) {
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
-          {/* Window toggle */}
-          <div className="flex items-center bg-[#0a0f1e] border border-[#1e2d4a] rounded p-0.5 gap-0.5">
-            {[30, 90].map(d => (
-              <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
-                  days === d ? 'bg-[#1e2d4a] text-white' : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                }`}
-              >
-                {d}d
-              </button>
-            ))}
-          </div>
-
-          {/* Decay half-life toggle */}
-          <div className="flex items-center bg-[#0a0f1e] border border-[#1e2d4a] rounded p-0.5 gap-0.5">
-            <span className="text-[9px] text-[#3a5070] px-1">decay</span>
-            {DECAY_PRESETS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => setHalfLife(p.halfLife)}
-                title={p.desc}
-                className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
-                  halfLife === p.halfLife
-                    ? 'bg-[#1e2d4a] text-white'
-                    : 'text-[#4a6080] hover:text-[#7a9cc0]'
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        {/* Window toggle */}
+        <div className="flex items-center bg-[#0a0f1e] border border-[#1e2d4a] rounded p-0.5 gap-0.5">
+          {[30, 90].map(d => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`px-2 py-0.5 text-[10px] rounded transition-colors ${
+                days === d ? 'bg-[#1e2d4a] text-white' : 'text-[#4a6080] hover:text-[#7a9cc0]'
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
         </div>
       </div>
 
@@ -310,7 +290,7 @@ export default function RiskTimeline({ alerts = [], pastAlerts = [] }) {
 
       {/* ── Footer legend ── */}
       <div className="flex items-center gap-4 mt-1.5 text-[9px] text-[#3a5070]">
-        <span>Decay half-life: <span className="text-[#4a6080]">{halfLife}d</span></span>
+        <span>30-day decay · open alerts undecayed</span>
         <span className="flex items-center gap-2">
           {Object.entries(SEV_DOT).map(([sev, col]) => (
             <span key={sev} className="flex items-center gap-0.5">
