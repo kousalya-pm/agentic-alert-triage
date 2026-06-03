@@ -47,55 +47,55 @@ VERDICT DEFINITIONS:
 - NEEDS_ESCALATION: High severity, requires senior analyst or management involvement
 - INCONCLUSIVE: Insufficient data to determine, recommend monitoring`;
 
-// Token budgets — plan responses are small; summary responses can be large
-const MAX_TOKENS_PLAN    = 2048;
+// Token budgets
+const MAX_TOKENS_PLAN    = 4096; // raised: incident plans with 6-8 steps + rationale need room
 const MAX_TOKENS_SUMMARY = 8192; // raised: incident synthesis needs room for full narratives
 
 // ─── Call 1: Generate investigation plan ──────────────────────────────────────
 export async function generateInvestigationPlan(alert, settings) {
   const isIncident = !!alert._isIncident;
+
+  // Build a lean alert object for the plan prompt — strip internal metadata
+  // and cap description to avoid bloating the prompt for incident alerts.
+  const { _isIncident, _alertCount, _entityIds, _allAlertIds, _groupKey, ...baseAlert } = alert;
+  const alertForPlan = {
+    ...baseAlert,
+    description: baseAlert.description?.length > 800
+      ? baseAlert.description.slice(0, 800) + '… [truncated]'
+      : baseAlert.description,
+  };
+
   const incidentNote = isIncident ? `
 
-⚠️  INCIDENT INVESTIGATION — This is a correlated incident comprising ${alert._alertCount} related alerts on the same entity.
-Constituent alert IDs: ${alert._allAlertIds?.join(', ')}
-All involved users: ${alert._entityIds?.users?.join(', ') || 'none'}
-All involved hosts: ${alert._entityIds?.hostnames?.join(', ') || 'none'}
-All involved IPs:   ${[...(alert._entityIds?.srcIps || []), ...(alert._entityIds?.dstIps || [])].join(', ') || 'none'}
+⚠️  INCIDENT — ${_alertCount} correlated alerts on the same entity.
+All users:  ${_entityIds?.users?.join(', ')     || 'none'}
+All hosts:  ${_entityIds?.hostnames?.join(', ') || 'none'}
+All IPs:    ${[...(_entityIds?.srcIps || []), ...(_entityIds?.dstIps || [])].filter(Boolean).join(', ') || 'none'}
 
-Generate 6-8 steps (more than a single-alert investigation). Your plan must:
-- Cover ALL users, hosts and IPs listed above — not just the first one
-- Investigate each stage of the ATT&CK progression visible in the incident
-- Look for lateral movement between the involved entities
-- Assess the full scope and blast radius of this incident` : '';
+Your plan must cover ALL entities above and each ATT&CK stage visible in the incident.` : '';
 
-  const prompt = `You are investigating the following security ${isIncident ? 'INCIDENT' : 'alert'}. Generate a structured investigation plan.
+  const prompt = `Investigate this security ${isIncident ? 'INCIDENT' : 'alert'} and generate a structured plan.
 
-ALERT DETAILS:
-${JSON.stringify(alert, null, 2)}${incidentNote}
+ALERT:
+${JSON.stringify(alertForPlan)}${incidentNote}
 
-Generate ${isIncident ? '6-8' : '4-6'} targeted investigation steps. For each step, specify:
-1. The investigation question an analyst would ask
-2. Which tool to use (from the available tools list)
-3. What parameter(s) to pass to the tool
-4. Your rationale for this step
+Generate ${isIncident ? '6-8' : '4-6'} targeted steps. Keep rationale to 1-2 sentences.
 
-Respond ONLY with valid JSON matching this exact schema:
+Respond ONLY with valid JSON:
 {
-  "alert_summary": "one sentence description of what this alert represents",
+  "alert_summary": "one sentence",
   "initial_risk_assessment": "LOW|MEDIUM|HIGH|CRITICAL",
   "key_concerns": ["concern1", "concern2", "concern3"],
   "investigation_steps": [
     {
       "step_id": 1,
-      "question": "What is the question this step answers?",
+      "question": "What does this step answer?",
       "tool": "tool_name",
       "parameters": { "param": "value" },
-      "rationale": "Why this step matters for this specific alert"
+      "rationale": "1-2 sentences max"
     }
   ]
-}
-
-Choose tools based on what's actually useful for THIS alert type. Only include steps with real investigative value.`;
+}`;
 
   return callAI(prompt, settings, MAX_TOKENS_PLAN);
 }
@@ -131,14 +131,13 @@ Your response must:
 
   const prompt = `You have completed the investigation of a security ${isIncident ? 'INCIDENT' : 'alert'}. Synthesize all findings into a final triage report.
 
-ORIGINAL ALERT:
-${JSON.stringify(alertForPrompt, null, 2)}${incidentSynthesisNote}
+ALERT: ${JSON.stringify(alertForPrompt)}${incidentSynthesisNote}
 
-INVESTIGATION PLAN SUMMARY:
-${JSON.stringify({ alert_summary: investigationPlan.alert_summary, initial_risk_assessment: investigationPlan.initial_risk_assessment, key_concerns: investigationPlan.key_concerns }, null, 2)}
+INITIAL ASSESSMENT: ${investigationPlan.initial_risk_assessment} — ${investigationPlan.alert_summary}
+KEY CONCERNS: ${investigationPlan.key_concerns?.join('; ')}
 
-TOOL FINDINGS (compact — full raw data omitted to save space):
-${JSON.stringify(resultsCompact, null, 2)}
+TOOL FINDINGS:
+${resultsCompact.map(r => `[${r.tool}] ${r.question?.slice(0, 100)} → ${r.findings}`).join('\n')}
 
 Based on ALL the evidence gathered, provide your final analysis.
 
@@ -359,44 +358,47 @@ function summarizeResult(toolName, result) {
       return `⚠ WATCHLIST HIT: ${indicators.map(h => `${h.threat_category || h.indicator_type} (${h.confidence})`).join(', ')}`;
     }
     if (toolName === 'ip_geo') {
-      const d = result.data || result;
+      // ip-api.com returns a flat object (no .data wrapper)
+      const d = result;
       const flags = [];
-      if (d.proxy || d.is_proxy) flags.push('PROXY');
-      if (d.hosting || d.is_hosting) flags.push('HOSTING');
+      if (d.proxy)    flags.push('PROXY');
+      if (d.hosting)  flags.push('HOSTING');
       const highRisk = ['CN','RU','KP','IR','BY','SY'];
       if (highRisk.includes(d.countryCode)) flags.push('HIGH-RISK COUNTRY');
       return `${d.city || '?'}, ${d.country || '?'} (${d.countryCode || '?'}), ISP: ${d.isp || '?'}${flags.length ? ` [${flags.join(', ')}]` : ''}`;
     }
     if (toolName === 'whois') {
-      const d = result.data || result;
-      const ageDays = result.domain_age_days ?? d.domain_age_days;
+      const d = result;
+      const ageDays = d.domain_age_days;
       const ageStr  = ageDays != null ? `${Math.floor(ageDays / 30)}mo old` : 'age unknown';
       return `Registrar: ${d.registrar || '?'}, ${ageStr}, country: ${d.country || '?'}${ageDays < 30 ? ' [VERY NEW DOMAIN]' : ''}`;
     }
     if (toolName === 'abuseipdb') {
-      const d = result.data || {};
-      const score = d.abuseConfidenceScore ?? result.abuse_confidence_score ?? 0;
-      const reports = d.totalReports ?? result.total_reports ?? 0;
-      const tor = d.isTor ?? result.is_tor ?? false;
-      const flag = score >= 80 ? ' [HIGH ABUSE]' : score >= 50 ? ' [MODERATE ABUSE]' : '';
-      return `abuse_score=${score}%, reports=${reports}, tor=${tor}, country=${d.countryCode || '?'}${flag}`;
+      // AbuseIPDB proxy returns { data: { abuseConfidenceScore, totalReports, isTor, countryCode } }
+      const d = result.data || result;
+      const score   = d.abuseConfidenceScore ?? d.abuse_confidence_score ?? 0;
+      const reports = d.totalReports ?? d.total_reports ?? 0;
+      const tor     = d.isTor ?? d.is_tor ?? false;
+      const flag    = score >= 80 ? ' [HIGH ABUSE]' : score >= 50 ? ' [MODERATE ABUSE]' : '';
+      return `abuse_score=${score}%, reports=${reports}, tor=${tor}, country=${d.countryCode || d.country_code || '?'}${flag}`;
     }
     if (toolName === 'virustotal_ip') {
-      const stats = result.data?.last_analysis_stats || result.malicious != null ? result : {};
-      const mal = stats.malicious ?? result.malicious ?? 0;
-      const sus = stats.suspicious ?? result.suspicious ?? 0;
-      const rep = result.data?.reputation ?? result.reputation ?? 'n/a';
-      const flag = mal >= 5 ? ' [CONFIRMED MALICIOUS]' : mal > 0 ? ' [FLAGGED]' : ' [clean]';
+      // VT proxy returns { data: { last_analysis_stats, reputation } }
+      const stats = result.data?.last_analysis_stats || {};
+      const mal   = stats.malicious ?? result.malicious ?? 0;
+      const sus   = stats.suspicious ?? result.suspicious ?? 0;
+      const rep   = result.data?.reputation ?? result.reputation ?? 'n/a';
+      const flag  = mal >= 5 ? ' [CONFIRMED MALICIOUS]' : mal > 0 ? ' [FLAGGED]' : ' [clean]';
       return `VT: malicious=${mal}, suspicious=${sus}, reputation=${rep}${flag}`;
     }
     if (toolName === 'virustotal_url') {
       const stats = result.data?.last_analysis_stats || {};
-      const mal = stats.malicious ?? result.malicious ?? 0;
-      const flag = mal > 0 ? ` [${mal} VENDORS FLAGGED]` : ' [clean]';
+      const mal   = stats.malicious ?? result.malicious ?? 0;
+      const flag  = mal > 0 ? ` [${mal} VENDORS FLAGGED]` : ' [clean]';
       return `VT URL: malicious=${mal}, suspicious=${stats.suspicious ?? 0}${flag}`;
     }
     if (toolName === 'urlscan') {
-      if (result.malicious) return `⚠ URLScan: MALICIOUS — ${result.verdict || ''}`;
+      if (result.malicious) return `URLScan: MALICIOUS — ${result.verdict || ''}`;
       const tags = result.tags?.slice(0, 3).join(', ') || '';
       return `URLScan: clean${tags ? `, tags: ${tags}` : ''}`;
     }
@@ -494,6 +496,9 @@ async function callClaude(prompt, settings, maxTokens) {
   const apiKey = settings?.anthropicKey;
   if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings to add your key.');
 
+  // Prefill the assistant turn with '{' — this forces Claude to begin JSON immediately
+  // without any preamble text ("Here is the plan:", schema echoing, etc.).
+  // The prefill character is NOT included in content[0].text, so we prepend it below.
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -507,7 +512,10 @@ async function callClaude(prompt, settings, maxTokens) {
       max_tokens: maxTokens,
       temperature: 0,
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'user',      content: prompt },
+        { role: 'assistant', content: '{' },   // ← prefill: skip all preamble
+      ],
     }),
   });
 
@@ -518,7 +526,6 @@ async function callClaude(prompt, settings, maxTokens) {
 
   const data = await response.json();
 
-  // Detect truncation before attempting JSON parse
   if (data.stop_reason === 'max_tokens') {
     throw new Error(
       `AI response was cut off before completing (stop_reason: max_tokens). ` +
@@ -527,7 +534,8 @@ async function callClaude(prompt, settings, maxTokens) {
     );
   }
 
-  const text = data.content?.[0]?.text || '';
+  // Prepend the prefilled '{' — the API returns only the continuation after it
+  const text = '{' + (data.content?.[0]?.text || '');
   return parseJSON(text);
 }
 
