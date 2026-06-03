@@ -1,11 +1,11 @@
 indicator,indicator_type,threat_category,confidence,added_date,source,description,active
-185.220.101.45,IP,Tor Exit Node / C2,High,2024-04-28,Internal Investigation HIST-003,Known Tor exit node. Used in credential attack against jsmith on 2024-04-28. Confirmed malicious.,yes
-91.108.4.200,IP,Data Exfiltration / Russian APT,High,2024-03-01,Threat Intel Feed - CISA,Associated with APT28 (Fancy Bear) data exfiltration infrastructure. Multiple financial sector targets.,yes
-hxxps://m365-secure-login.netlify.app,URL,Phishing / AiTM,High,2024-05-13,Proofpoint Alert ALT-2024-002,AiTM phishing page mimicking Microsoft 365. Active campaign targeting financial sector.,yes
-pwc-advisory-secure.com,Domain,Phishing / BEC,High,2024-05-13,Proofpoint Alert ALT-2024-015,Typosquat of PwC domain used in spear phishing against financial executives.,yes
-acme-corp-group.com,Domain,BEC / CEO Fraud,High,2024-05-13,Proofpoint Alert ALT-2024-007,Typosquat of company domain used in BEC fraud attempt. Note hyphen vs official domain.,yes
-45.33.32.156,IP,Scanner / Recon,Medium,2024-04-01,Shodan Feed,Known Shodan scanning infrastructure. Not malicious but indicates reconnaissance.,yes
-contractors-acme@outlook.com,Email,Insider Threat / Privilege Escalation,High,2024-05-13,Azure Monitor Alert ALT-2024-013,External account granted Owner access to Azure production subscription. Under investigation.,yes
-pool.minexmr.com,Domain,Cryptomining,Medium,2024-03-15,Zscaler,Known Monero mining pool. Policy violation and potential unauthorized software.,yes
-203.0.113.100,IP,Phishing Infrastructure,High,2024-02-20,External ISAC - FS-ISAC,Hosting phishing pages targeting US financial institutions. Campaign active.,yes
-hxxp://update-flash-player.net,URL,Malware Delivery,High,2024-01-10,VirusTotal,Drive-by download site. Delivers info-stealer malware. Blocked at proxy.,no
+185.220.101.45,IP,Tor Exit Node / C2,High,2026-04-28,Internal Investigation HIST-003,Known Tor exit node. Used in credential attack against jsmith on 2026-04-28. Confirmed malicious.,yes
+91.108.4.200,IP,Data Exfiltration / Russian APT,High,2026-03-01,Threat Intel Feed - CISA,Associated with APT28 (Fancy Bear) data exfiltration infrastructure. Multiple financial sector targets.,yes
+hxxps://m365-secure-login.netlify.app,URL,Phishing / AiTM,High,2026-05-13,Proofpoint Alert ALT-2026-002,AiTM phishing page mimicking Microsoft 365. Active campaign targeting financial sector.,yes
+pwc-advisory-secure.com,Domain,Phishing / BEC,High,2026-05-13,Proofpoint Alert ALT-2026-015,Typosquat of PwC domain used in spear phishing against financial executives.,yes
+acme-corp-group.com,Domain,BEC / CEO Fraud,High,2026-05-13,Proofpoint Alert ALT-2026-007,Typosquat of company domain used in BEC fraud attempt. Note hyphen vs official domain.,yes
+45.33.32.156,IP,Scanner / Recon,Medium,2026-04-01,Shodan Feed,Known Shodan scanning infrastructure. Not malicious but indicates reconnaissance.,yes
+contractors-acme@outlook.com,Email,Insider Threat / Privilege Escalation,High,2026-05-13,Azure Monitor Alert ALT-2026-013,External account granted Owner access to Azure production subscription. Under investigation.,yes
+pool.minexmr.com,Domain,Cryptomining,Medium,2026-03-15,Zscaler,Known Monero mining pool. Policy violation and potential unauthorized software.,yes
+203.0.113.100,IP,Phishing Infrastructure,High,2026-02-20,External ISAC - FS-ISAC,Hosting phishing pages targeting US financial institutions. Campaign active.,yes
+hxxp://update-flash-player.net,URL,Malware Delivery,High,2026-01-10,VirusTotal,Drive-by download site. Delivers info-stealer malware. Blocked at proxy.,no
