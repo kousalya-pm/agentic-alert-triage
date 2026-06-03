@@ -191,8 +191,9 @@ export function buildIncidentAlert(incident) {
     mitre_tactic:    tactics.join(' / '),
     mitre_technique: techs.join(' / '),
     status:          'open',
-    // Metadata consumed by aiService for richer prompting
+    // Metadata consumed by aiService for richer prompting and queue selection
     _isIncident:  true,
+    _groupKey:    incident.key,   // used by IncidentCard to detect "this incident is active"
     _alertCount:  alerts.length,
     _entityIds:   { users: userIds, hostnames, srcIps, dstIps },
     _allAlertIds: alerts.map(a => a.alert_id),

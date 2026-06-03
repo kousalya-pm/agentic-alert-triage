@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronDown, Zap } from 'lucide-react';
+import { Search, ChevronDown } from 'lucide-react';
 import { groupAlerts, groupSeverity, deriveIncidentTitle, buildIncidentAlert } from '../services/incidentService.js';
 import { CompactKillChain } from './KillChainStrip.jsx';
 
@@ -148,9 +148,14 @@ const INC_ACCENT = {
 // ─── Incident card ─────────────────────────────────────────────────────────
 
 function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntityClick }) {
-  const hasSelected = group.alerts.some(a => a.alert_id === selectedAlert?.alert_id);
+  // Selected if a constituent alert is active, OR if the incident itself was loaded
+  const isIncidentActive = selectedAlert?._groupKey === group.key;
+  const hasSelected      = isIncidentActive ||
+    group.alerts.some(a => a.alert_id === selectedAlert?.alert_id);
+
   const [expanded, setExpanded] = useState(hasSelected);
 
+  // Auto-expand whenever any alert in this incident becomes active
   useEffect(() => {
     if (hasSelected) setExpanded(true);
   }, [hasSelected]);
@@ -158,20 +163,27 @@ function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntity
   const topSev = groupSeverity(group);
   const title  = deriveIncidentTitle(group);
 
+  // Clicking the card (not the chevron) selects the incident — same as clicking an alert row
+  const handleCardClick = () => {
+    onSelectAlert(buildIncidentAlert(group));
+    setExpanded(true);
+  };
+
   return (
-    // Card-style container: rounded, margined, elevated from the list
     <div className={`mx-1.5 my-1.5 rounded-xl border overflow-hidden bg-[#0c1628] ${INC_BORDER[topSev]} ${hasSelected ? 'ring-1 ring-[#00d4ff]/30' : ''}`}>
 
-      {/* Severity accent line at top */}
+      {/* Severity accent line */}
       <div className={`h-0.5 w-full ${INC_ACCENT[topSev]}`} />
 
-      {/* Incident header */}
+      {/* Incident header — clicking loads it into the central panel */}
       <div
         role="button"
-        onClick={() => setExpanded(e => !e)}
-        className="w-full text-left px-3 pt-2.5 pb-2 hover:bg-[#0d1a2e] transition-colors cursor-pointer"
+        onClick={handleCardClick}
+        className={`w-full text-left px-3 pt-2.5 pb-2 transition-colors cursor-pointer ${
+          isIncidentActive ? 'bg-[#0f1e38]' : 'hover:bg-[#0d1a2e]'
+        }`}
       >
-        {/* Top row: label + controls */}
+        {/* Top row */}
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-[9px] font-bold text-[#00d4ff] uppercase tracking-wider shrink-0">
@@ -184,26 +196,16 @@ function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntity
             <span className={`text-[10px] px-1.5 py-0.5 rounded border ${SEV_COLOR[topSev]}`}>
               {topSev}
             </span>
-            {/* Triage Incident button */}
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                onSelectAlert(buildIncidentAlert(group));
-              }}
-              title="Investigate all alerts together as one incident"
-              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/30 rounded hover:bg-[#00d4ff]/20 transition-colors"
-            >
-              <Zap size={9} />
-              Triage
-            </button>
+            {/* Chevron: toggle expand only, doesn't change selection */}
             <ChevronDown
-              size={12}
-              className={`text-[#4a6080] transition-transform duration-150 shrink-0 ${expanded ? 'rotate-180' : ''}`}
+              size={13}
+              onClick={e => { e.stopPropagation(); setExpanded(prev => !prev); }}
+              className={`text-[#4a6080] hover:text-[#7a9cc0] transition-transform duration-150 shrink-0 cursor-pointer ${expanded ? 'rotate-180' : ''}`}
             />
           </div>
         </div>
 
-        {/* Incident title */}
+        {/* Title */}
         <p className="text-xs font-semibold text-white leading-snug mb-1.5">{title}</p>
 
         {/* Entity link */}
@@ -216,11 +218,10 @@ function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntity
           </button>
         )}
 
-        {/* Compact kill chain */}
         <CompactKillChain alerts={group.alerts} />
       </div>
 
-      {/* Expanded individual alert rows */}
+      {/* Expanded constituent alert rows */}
       {expanded && (
         <div className="border-t border-[#1e3060]/60 bg-[#080d1a]">
           {group.alerts.map(alert => (
