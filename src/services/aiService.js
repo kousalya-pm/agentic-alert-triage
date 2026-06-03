@@ -49,7 +49,7 @@ VERDICT DEFINITIONS:
 
 // Token budgets — plan responses are small; summary responses can be large
 const MAX_TOKENS_PLAN    = 2048;
-const MAX_TOKENS_SUMMARY = 4096;
+const MAX_TOKENS_SUMMARY = 8192; // raised: incident synthesis needs room for full narratives
 
 // ─── Call 1: Generate investigation plan ──────────────────────────────────────
 export async function generateInvestigationPlan(alert, settings) {
@@ -103,16 +103,27 @@ Choose tools based on what's actually useful for THIS alert type. Only include s
 // ─── Call 2: Synthesize results into final verdict ────────────────────────────
 export async function generateFinalSummary(alert, investigationPlan, toolResults, settings) {
   const isIncident = !!alert._isIncident;
-  const resultsFormatted = toolResults.map((r, i) => ({
-    step: investigationPlan.investigation_steps[i],
-    result: r
-  }));
+
+  // Compact tool results — use summarizeResult() instead of raw JSON.
+  // Raw VT data is ~2000 chars; summary is ~40 chars. This prevents max_tokens errors.
+  const resultsCompact = toolResults.map((r, i) => {
+    const step = investigationPlan.investigation_steps[i];
+    return {
+      step_id: step?.step_id,
+      tool:    step?.tool,
+      question: step?.question,
+      findings: summarizeResult(step?.tool, r),
+    };
+  });
+
+  // Strip internal metadata fields — they're prompt noise (already in description)
+  const { _isIncident, _alertCount, _entityIds, _allAlertIds, _groupKey, ...alertForPrompt } = alert;
 
   const incidentSynthesisNote = isIncident ? `
 
 ⚠️  INCIDENT SYNTHESIS — You investigated a correlated incident, not a single alert.
 Your response must:
-- Reference ALL ${alert._alertCount} constituent alerts in your executive_summary
+- Reference ALL ${_alertCount} constituent alerts in your executive_summary
 - Describe the complete attack chain in attack_narrative (from first alert to last)
 - Provide recommended_actions that address the full incident scope
 - In key_findings, call out the kill chain progression and any signs of lateral movement
@@ -121,13 +132,13 @@ Your response must:
   const prompt = `You have completed the investigation of a security ${isIncident ? 'INCIDENT' : 'alert'}. Synthesize all findings into a final triage report.
 
 ORIGINAL ALERT:
-${JSON.stringify(alert, null, 2)}${incidentSynthesisNote}
+${JSON.stringify(alertForPrompt, null, 2)}${incidentSynthesisNote}
 
-INVESTIGATION PLAN:
-${JSON.stringify(investigationPlan, null, 2)}
+INVESTIGATION PLAN SUMMARY:
+${JSON.stringify({ alert_summary: investigationPlan.alert_summary, initial_risk_assessment: investigationPlan.initial_risk_assessment, key_concerns: investigationPlan.key_concerns }, null, 2)}
 
-TOOL RESULTS (in order):
-${JSON.stringify(resultsFormatted, null, 2)}
+TOOL FINDINGS (compact — full raw data omitted to save space):
+${JSON.stringify(resultsCompact, null, 2)}
 
 Based on ALL the evidence gathered, provide your final analysis.
 
@@ -307,44 +318,90 @@ Available tools: user_lookup, asset_lookup, siem_query, watchlist_check, ip_geo,
   return callAI(prompt, settings, 600);
 }
 
-// Extracts a brief summary from a tool result for use in the re-planning prompt
+// Extracts a compact, signal-rich summary from a tool result.
+// Used in both adaptive re-planning and final synthesis to keep prompts small.
 function summarizeResult(toolName, result) {
   if (!result || result.error) return result?.error ? `Error: ${result.error}` : 'No result';
   try {
     if (toolName === 'user_lookup') {
-      if (!result.found) return 'User not found';
-      return `${result.full_name}, ${result.department}, risk=${result.risk_score}, status=${result.status}, mfa=${result.mfa_enabled}${result.notes ? `, notes: ${result.notes}` : ''}`;
+      if (!result.found) return 'User not found in directory';
+      const flags = [];
+      if (result.mfa_enabled !== 'yes') flags.push('NO MFA');
+      if (result.status !== 'active')   flags.push(`status=${result.status}`);
+      if (result.risk_score >= 70)      flags.push(`HIGH risk=${result.risk_score}`);
+      if (result.admin_access === 'yes') flags.push('admin');
+      if (result.end_date)              flags.push('DEPARTING');
+      return `${result.full_name}, ${result.department}, ${result.title}, risk=${result.risk_score}${flags.length ? ` [${flags.join(', ')}]` : ''}${result.notes ? ` | notes: ${result.notes}` : ''}`;
     }
     if (toolName === 'asset_lookup') {
-      if (!result.found) return 'Asset not found';
-      return `${result.hostname}, criticality=${result.criticality}, patch=${result.patch_level}%, edr=${result.edr_installed}, critical_vulns=${result.open_vulns_critical}`;
+      if (!result.found) return 'Asset not found in CMDB';
+      const flags = [];
+      if (result.criticality === 'Critical') flags.push('CRITICAL asset');
+      if (result.open_vulns_critical > 0)    flags.push(`${result.open_vulns_critical} critical vulns`);
+      if (result.edr_installed === 'No')     flags.push('NO EDR');
+      if (parseInt(result.patch_level) < 90) flags.push(`low patch=${result.patch_level}%`);
+      return `${result.hostname}, ${result.os}, criticality=${result.criticality}, patch=${result.patch_level}%${flags.length ? ` [${flags.join(', ')}]` : ''}`;
     }
     if (toolName === 'siem_query') {
-      if (result.total_results === 0) return 'No prior alerts found';
-      const titles = result.alerts?.slice(0, 3).map(a => a.title).join('; ') || '';
-      return `${result.total_results} prior alert(s): ${titles}`;
+      const alerts = result.alerts || [];
+      if (!alerts.length && !result.total_results) return 'No prior alerts found in SIEM';
+      const total   = result.total_results ?? alerts.length;
+      const critHigh = alerts.filter(a => a.severity === 'Critical' || a.severity === 'High').length;
+      const tpCount  = alerts.filter(a => a.verdict === 'True Positive').length;
+      const recent   = alerts.slice(0, 4).map(a => `[${a.severity}] ${a.title}`).join('; ');
+      return `${total} prior alert(s) — ${critHigh} Critical/High, ${tpCount} True Positives. Recent: ${recent}`;
     }
     if (toolName === 'watchlist_check') {
-      if (!result.matched) return 'Not on watchlist';
-      return `WATCHLIST HIT: ${result.hits?.map(h => `${h.threat_category} (${h.confidence})`).join(', ')}`;
+      // toolService returns { match, indicators[] } or { matched, hits[] }
+      const isHit = result.match || result.matched || false;
+      if (!isHit) return 'No watchlist match — indicator is clean';
+      const indicators = result.indicators || result.hits || [];
+      return `⚠ WATCHLIST HIT: ${indicators.map(h => `${h.threat_category || h.indicator_type} (${h.confidence})`).join(', ')}`;
     }
-    if (toolName === 'ip_geo' || toolName === 'whois') {
+    if (toolName === 'ip_geo') {
       const d = result.data || result;
-      return `${d.city || ''} ${d.country || ''} (${d.countryCode || '?'}), ISP: ${d.isp || '?'}, ASN: ${d.as || '?'}`;
+      const flags = [];
+      if (d.proxy || d.is_proxy) flags.push('PROXY');
+      if (d.hosting || d.is_hosting) flags.push('HOSTING');
+      const highRisk = ['CN','RU','KP','IR','BY','SY'];
+      if (highRisk.includes(d.countryCode)) flags.push('HIGH-RISK COUNTRY');
+      return `${d.city || '?'}, ${d.country || '?'} (${d.countryCode || '?'}), ISP: ${d.isp || '?'}${flags.length ? ` [${flags.join(', ')}]` : ''}`;
+    }
+    if (toolName === 'whois') {
+      const d = result.data || result;
+      const ageDays = result.domain_age_days ?? d.domain_age_days;
+      const ageStr  = ageDays != null ? `${Math.floor(ageDays / 30)}mo old` : 'age unknown';
+      return `Registrar: ${d.registrar || '?'}, ${ageStr}, country: ${d.country || '?'}${ageDays < 30 ? ' [VERY NEW DOMAIN]' : ''}`;
     }
     if (toolName === 'abuseipdb') {
       const d = result.data || {};
-      return `abuse_score=${d.abuseConfidenceScore}%, reports=${d.totalReports}, tor=${d.isTor}, country=${d.countryCode}`;
+      const score = d.abuseConfidenceScore ?? result.abuse_confidence_score ?? 0;
+      const reports = d.totalReports ?? result.total_reports ?? 0;
+      const tor = d.isTor ?? result.is_tor ?? false;
+      const flag = score >= 80 ? ' [HIGH ABUSE]' : score >= 50 ? ' [MODERATE ABUSE]' : '';
+      return `abuse_score=${score}%, reports=${reports}, tor=${tor}, country=${d.countryCode || '?'}${flag}`;
     }
     if (toolName === 'virustotal_ip') {
-      const s = result.data?.last_analysis_stats || {};
-      return `malicious=${s.malicious || 0}, suspicious=${s.suspicious || 0}, reputation=${result.data?.reputation ?? 'n/a'}`;
+      const stats = result.data?.last_analysis_stats || result.malicious != null ? result : {};
+      const mal = stats.malicious ?? result.malicious ?? 0;
+      const sus = stats.suspicious ?? result.suspicious ?? 0;
+      const rep = result.data?.reputation ?? result.reputation ?? 'n/a';
+      const flag = mal >= 5 ? ' [CONFIRMED MALICIOUS]' : mal > 0 ? ' [FLAGGED]' : ' [clean]';
+      return `VT: malicious=${mal}, suspicious=${sus}, reputation=${rep}${flag}`;
     }
-    if (toolName === 'virustotal_url' || toolName === 'urlscan') {
-      const s = result.data?.last_analysis_stats || {};
-      return `malicious=${s.malicious ?? 'n/a'}, suspicious=${s.suspicious ?? 'n/a'}`;
+    if (toolName === 'virustotal_url') {
+      const stats = result.data?.last_analysis_stats || {};
+      const mal = stats.malicious ?? result.malicious ?? 0;
+      const flag = mal > 0 ? ` [${mal} VENDORS FLAGGED]` : ' [clean]';
+      return `VT URL: malicious=${mal}, suspicious=${stats.suspicious ?? 0}${flag}`;
     }
-    return JSON.stringify(result).slice(0, 200);
+    if (toolName === 'urlscan') {
+      if (result.malicious) return `⚠ URLScan: MALICIOUS — ${result.verdict || ''}`;
+      const tags = result.tags?.slice(0, 3).join(', ') || '';
+      return `URLScan: clean${tags ? `, tags: ${tags}` : ''}`;
+    }
+    // Fallback: compact JSON, max 300 chars
+    return JSON.stringify(result).slice(0, 300);
   } catch {
     return 'Summary unavailable';
   }
