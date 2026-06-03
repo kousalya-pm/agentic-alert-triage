@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ExternalLink, Copy, Check, User, Monitor, AlertTriangle, ChevronRight } from 'lucide-react';
 import { lookupUser, lookupAsset, loadCSV } from '../services/csvService.js';
+import { RiskSparkline } from './RiskTimeline.jsx';
 
 export default function EntityPanel({ entity, onClose, onEntityClick }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [relatedAlerts, setRelatedAlerts] = useState([]);
+  const [pastAlerts, setPastAlerts] = useState([]);
 
   const pageUrl = `${window.location.origin}/${entity.type === 'user' ? 'users' : 'assets'}/${entity.id}`;
 
@@ -15,15 +17,23 @@ export default function EntityPanel({ entity, onClose, onEntityClick }) {
     setLoading(true);
     setData(null);
     setRelatedAlerts([]);
+    setPastAlerts([]);
     const lookup = entity.type === 'user' ? lookupUser(entity.id) : lookupAsset(entity.id);
     lookup.then(d => { setData(d); setLoading(false); });
 
-    // Load related alerts from current queue
+    // Load related open alerts (for the queue list)
     loadCSV('alerts.csv').then(alerts => {
       const related = alerts.filter(a =>
         entity.type === 'user' ? a.user_id === entity.id : a.hostname === entity.id
       ).slice(0, 5);
       setRelatedAlerts(related);
+    });
+
+    // Load past alerts for sparkline
+    loadCSV('past_alerts.csv').then(rows => {
+      setPastAlerts(rows.filter(a =>
+        entity.type === 'user' ? a.user_id === entity.id : a.hostname === entity.id
+      ));
     });
   }, [entity.type, entity.id]);
 
@@ -88,9 +98,11 @@ export default function EntityPanel({ entity, onClose, onEntityClick }) {
             <AlertTriangle size={13} className="mr-2" /> Not found: {entity.id}
           </div>
         ) : entity.type === 'user' ? (
-          <UserDetail data={data} onAssetClick={id => onEntityClick('asset', id)} />
+          <UserDetail data={data} onAssetClick={id => onEntityClick('asset', id)}
+            relatedAlerts={relatedAlerts} pastAlerts={pastAlerts} />
         ) : (
-          <AssetDetail data={data} onUserClick={id => onEntityClick('user', id)} />
+          <AssetDetail data={data} onUserClick={id => onEntityClick('user', id)}
+            relatedAlerts={relatedAlerts} pastAlerts={pastAlerts} />
         )}
 
         {/* Related alerts */}
@@ -141,11 +153,16 @@ function Section({ title, children }) {
   );
 }
 
-function UserDetail({ data, onAssetClick }) {
+function UserDetail({ data, onAssetClick, relatedAlerts = [], pastAlerts = [] }) {
   const risk = parseInt(data.risk_score) || 0;
   const riskColor = risk > 70 ? 'red' : risk > 40 ? 'orange' : 'green';
   return (
     <>
+      {/* Sparkline */}
+      <Section title="Risk Trend">
+        <RiskSparkline alerts={relatedAlerts} pastAlerts={pastAlerts} />
+      </Section>
+
       {/* Identity */}
       <Section title="Identity">
         <Field label="Full name" value={data.full_name} />
@@ -184,11 +201,16 @@ function UserDetail({ data, onAssetClick }) {
   );
 }
 
-function AssetDetail({ data, onUserClick }) {
+function AssetDetail({ data, onUserClick, relatedAlerts = [], pastAlerts = [] }) {
   const critColor = { Critical: 'red', High: 'orange', Medium: 'yellow', Low: 'green' }[data.criticality];
   const patch = parseInt(data.patch_level) || 0;
   return (
     <>
+      {/* Sparkline */}
+      <Section title="Risk Trend">
+        <RiskSparkline alerts={relatedAlerts} pastAlerts={pastAlerts} />
+      </Section>
+
       {/* Identity */}
       <Section title="Device">
         <Field label="Hostname" value={data.hostname} mono />

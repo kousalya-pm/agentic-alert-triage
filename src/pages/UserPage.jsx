@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Shield, ArrowLeft, User, AlertTriangle, ExternalLink } from 'lucide-react';
 import { lookupUser, loadCSV } from '../services/csvService.js';
+import RiskTimeline from '../components/RiskTimeline.jsx';
 
 export default function UserPage() {
   const { userId } = useParams();
@@ -104,9 +105,14 @@ export default function UserPage() {
               </Card>
             </div>
 
+            {/* Risk timeline */}
+            <div className="mt-8">
+              <RiskTimeline alerts={alerts} pastAlerts={pastAlerts} />
+            </div>
+
             {/* Alert history */}
             {(alerts.length > 0 || pastAlerts.length > 0) && (
-              <div className="mt-8">
+              <div className="mt-6">
                 <h2 className="text-sm font-semibold text-white mb-4">Alert History</h2>
                 <div className="space-y-6">
                   {alerts.length > 0 && (
