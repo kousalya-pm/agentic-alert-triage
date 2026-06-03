@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, ChevronDown } from 'lucide-react';
-import { groupAlerts, groupSeverity, deriveIncidentTitle } from '../services/incidentService.js';
+import { Search, ChevronDown, Zap } from 'lucide-react';
+import { groupAlerts, groupSeverity, deriveIncidentTitle, buildIncidentAlert } from '../services/incidentService.js';
 import { CompactKillChain } from './KillChainStrip.jsx';
 
 function useDecisions() {
@@ -131,13 +131,26 @@ export default function AlertQueue({ alerts, loading, selectedAlert, onSelectAle
   );
 }
 
+// Severity accent colours for incident cards
+const INC_BORDER = {
+  Critical: 'border-red-500/40',
+  High:     'border-orange-500/40',
+  Medium:   'border-yellow-500/40',
+  Low:      'border-blue-500/40',
+};
+const INC_ACCENT = {
+  Critical: 'bg-red-500/60',
+  High:     'bg-orange-500/60',
+  Medium:   'bg-yellow-500/60',
+  Low:      'bg-blue-500/60',
+};
+
 // ─── Incident card ─────────────────────────────────────────────────────────
 
 function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntityClick }) {
   const hasSelected = group.alerts.some(a => a.alert_id === selectedAlert?.alert_id);
   const [expanded, setExpanded] = useState(hasSelected);
 
-  // Auto-expand when a nested alert is selected
   useEffect(() => {
     if (hasSelected) setExpanded(true);
   }, [hasSelected]);
@@ -146,50 +159,70 @@ function IncidentCard({ group, selectedAlert, decisions, onSelectAlert, onEntity
   const title  = deriveIncidentTitle(group);
 
   return (
-    <div className={`border-b border-[#1e2d4a] ${hasSelected ? 'bg-[#0a1628]' : ''}`}>
+    // Card-style container: rounded, margined, elevated from the list
+    <div className={`mx-1.5 my-1.5 rounded-xl border overflow-hidden bg-[#0c1628] ${INC_BORDER[topSev]} ${hasSelected ? 'ring-1 ring-[#00d4ff]/30' : ''}`}>
+
+      {/* Severity accent line at top */}
+      <div className={`h-0.5 w-full ${INC_ACCENT[topSev]}`} />
+
       {/* Incident header */}
       <div
         role="button"
         onClick={() => setExpanded(e => !e)}
-        className="w-full text-left px-3 py-2.5 hover:bg-[#0d1525] transition-colors cursor-pointer border-l-2 border-l-[#00d4ff]/40"
+        className="w-full text-left px-3 pt-2.5 pb-2 hover:bg-[#0d1a2e] transition-colors cursor-pointer"
       >
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[9px] font-bold text-[#00d4ff] uppercase tracking-wider">
-              Incident
+        {/* Top row: label + controls */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[9px] font-bold text-[#00d4ff] uppercase tracking-wider shrink-0">
+              ⬡ Incident
             </span>
             <span className="text-[9px] text-[#3a5070]">·</span>
-            <span className="text-[9px] text-[#7a9cc0]">{group.alerts.length} alerts</span>
+            <span className="text-[9px] text-[#7a9cc0] shrink-0">{group.alerts.length} alerts</span>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className={`text-[10px] px-1.5 py-0.5 rounded border ${SEV_COLOR[topSev]}`}>
               {topSev}
             </span>
+            {/* Triage Incident button */}
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                onSelectAlert(buildIncidentAlert(group));
+              }}
+              title="Investigate all alerts together as one incident"
+              className="flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-semibold bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/30 rounded hover:bg-[#00d4ff]/20 transition-colors"
+            >
+              <Zap size={9} />
+              Triage
+            </button>
             <ChevronDown
               size={12}
-              className={`text-[#4a6080] transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}
+              className={`text-[#4a6080] transition-transform duration-150 shrink-0 ${expanded ? 'rotate-180' : ''}`}
             />
           </div>
         </div>
 
-        <p className="text-xs font-semibold text-white leading-snug mb-1">{title}</p>
+        {/* Incident title */}
+        <p className="text-xs font-semibold text-white leading-snug mb-1.5">{title}</p>
 
+        {/* Entity link */}
         {group.entityId && (
           <button
-            className="text-[10px] text-[#7a9cc0] hover:text-[#00d4ff] transition-colors"
+            className="text-[10px] text-[#7a9cc0] hover:text-[#00d4ff] transition-colors mb-0.5"
             onClick={e => { e.stopPropagation(); onEntityClick?.(group.entityType, group.entityId); }}
           >
             {group.entityType === 'user' ? '👤' : '💻'} {group.entityId}
           </button>
         )}
 
-        {/* Mini kill chain */}
+        {/* Compact kill chain */}
         <CompactKillChain alerts={group.alerts} />
       </div>
 
-      {/* Expanded alert rows */}
+      {/* Expanded individual alert rows */}
       {expanded && (
-        <div className="bg-[#070b14] border-t border-[#1e2d4a]/60">
+        <div className="border-t border-[#1e3060]/60 bg-[#080d1a]">
           {group.alerts.map(alert => (
             <AlertRow
               key={alert.alert_id}

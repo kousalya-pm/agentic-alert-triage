@@ -53,12 +53,27 @@ const MAX_TOKENS_SUMMARY = 4096;
 
 // ─── Call 1: Generate investigation plan ──────────────────────────────────────
 export async function generateInvestigationPlan(alert, settings) {
-  const prompt = `You are investigating the following security alert. Generate a structured investigation plan.
+  const isIncident = !!alert._isIncident;
+  const incidentNote = isIncident ? `
+
+⚠️  INCIDENT INVESTIGATION — This is a correlated incident comprising ${alert._alertCount} related alerts on the same entity.
+Constituent alert IDs: ${alert._allAlertIds?.join(', ')}
+All involved users: ${alert._entityIds?.users?.join(', ') || 'none'}
+All involved hosts: ${alert._entityIds?.hostnames?.join(', ') || 'none'}
+All involved IPs:   ${[...(alert._entityIds?.srcIps || []), ...(alert._entityIds?.dstIps || [])].join(', ') || 'none'}
+
+Generate 6-8 steps (more than a single-alert investigation). Your plan must:
+- Cover ALL users, hosts and IPs listed above — not just the first one
+- Investigate each stage of the ATT&CK progression visible in the incident
+- Look for lateral movement between the involved entities
+- Assess the full scope and blast radius of this incident` : '';
+
+  const prompt = `You are investigating the following security ${isIncident ? 'INCIDENT' : 'alert'}. Generate a structured investigation plan.
 
 ALERT DETAILS:
-${JSON.stringify(alert, null, 2)}
+${JSON.stringify(alert, null, 2)}${incidentNote}
 
-Generate 4-6 targeted investigation steps. For each step, specify:
+Generate ${isIncident ? '6-8' : '4-6'} targeted investigation steps. For each step, specify:
 1. The investigation question an analyst would ask
 2. Which tool to use (from the available tools list)
 3. What parameter(s) to pass to the tool
@@ -87,15 +102,26 @@ Choose tools based on what's actually useful for THIS alert type. Only include s
 
 // ─── Call 2: Synthesize results into final verdict ────────────────────────────
 export async function generateFinalSummary(alert, investigationPlan, toolResults, settings) {
+  const isIncident = !!alert._isIncident;
   const resultsFormatted = toolResults.map((r, i) => ({
     step: investigationPlan.investigation_steps[i],
     result: r
   }));
 
-  const prompt = `You have completed the investigation of a security alert. Synthesize all findings into a final triage report.
+  const incidentSynthesisNote = isIncident ? `
+
+⚠️  INCIDENT SYNTHESIS — You investigated a correlated incident, not a single alert.
+Your response must:
+- Reference ALL ${alert._alertCount} constituent alerts in your executive_summary
+- Describe the complete attack chain in attack_narrative (from first alert to last)
+- Provide recommended_actions that address the full incident scope
+- In key_findings, call out the kill chain progression and any signs of lateral movement
+- Set escalation_required to true if ANY of the constituent alerts warrant it` : '';
+
+  const prompt = `You have completed the investigation of a security ${isIncident ? 'INCIDENT' : 'alert'}. Synthesize all findings into a final triage report.
 
 ORIGINAL ALERT:
-${JSON.stringify(alert, null, 2)}
+${JSON.stringify(alert, null, 2)}${incidentSynthesisNote}
 
 INVESTIGATION PLAN:
 ${JSON.stringify(investigationPlan, null, 2)}

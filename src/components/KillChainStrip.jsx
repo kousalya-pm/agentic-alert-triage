@@ -34,7 +34,8 @@ export function CompactKillChain({ alerts }) {
         const pill  = (
           <span
             key={stage.id}
-            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${SEV_STAGE[entry.severity]}`}
+            title={`${stage.id}${entry.alerts.length > 1 ? ` (${entry.alerts.length} alerts)` : ''}`}
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border cursor-default ${SEV_STAGE[entry.severity]}`}
           >
             {stage.abbr}{entry.alerts.length > 1 ? `×${entry.alerts.length}` : ''}
           </span>
