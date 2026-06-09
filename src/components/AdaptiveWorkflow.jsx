@@ -65,7 +65,6 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
         elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
         mode: 'adaptive',
       });
-      refreshHistory();
     }
   }, [alert?.alert_id, stepResults, summary, plan]);
 

@@ -82,7 +82,6 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
         elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
         mode: 'standard',
       });
-      refreshHistory();
     }
   }, [alert?.alert_id, stepResults, summary, plan]);
 

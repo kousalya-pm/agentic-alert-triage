@@ -79,7 +79,6 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         tier3Results,
         tier2Plan,
       });
-      refreshHistory();
     }
   }, [alert?.alert_id, tier1Results, tier2Results, tier3Results, finalSummary, tier2Plan]);
 

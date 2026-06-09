@@ -159,7 +159,6 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
         mode: 'parallel',
         agentStates,
       });
-      refreshHistory();
     }
   }, [alert?.alert_id, agentStates, finalSummary, plan]);
 
