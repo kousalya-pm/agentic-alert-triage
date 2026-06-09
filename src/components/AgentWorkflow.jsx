@@ -341,10 +341,14 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
         {/* IDLE state */}
         {phase === PHASE.IDLE && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#00d4ff]/10 border border-[#00d4ff]/20 flex items-center justify-center">
+            <button
+              onClick={handleRun}
+              className="w-12 h-12 rounded-xl bg-[#00d4ff]/10 border border-[#00d4ff]/20 flex items-center justify-center hover:bg-[#00d4ff]/20 hover:border-[#00d4ff]/40 transition-colors"
+              title="Run AI Triage"
+            >
               <Play size={20} className="text-[#00d4ff]" />
-            </div>
-            <p className="text-sm text-[#7a9cc0]">Click <strong className="text-white">Run AI Triage</strong> to start the autonomous investigation</p>
+            </button>
+            <p className="text-sm text-[#7a9cc0]">Click the button or <strong className="text-white">Run AI Triage</strong> above to start the autonomous investigation</p>
             {runHistory.length > 0 && (
               <button
                 onClick={() => loadHistoricalRun(runHistory[0])}

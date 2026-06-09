@@ -110,14 +110,18 @@ function MainApp() {
     <div className="flex flex-col h-screen bg-[#0a0f1e] text-[#e2eaf5]">
       {/* ── Top nav ── */}
       <header className="flex items-center justify-between px-4 py-2 bg-[#0f1629] border-b border-[#1e2d4a] shrink-0 cyber-glow">
-        <div className="flex items-center gap-3">
+        <button
+          onClick={() => { setSelectedAlert(null); navigate('/'); }}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+          title="Go to home / clear selection"
+        >
           <Shield className="text-[#00d4ff]" size={22} />
-          <div>
+          <div className="text-left">
             <span className="font-bold text-sm text-white">Acme Corp</span>
             <span className="text-[#7a9cc0] text-xs ml-2">· SOC Alert Triage</span>
           </div>
           <span className="ml-2 px-2 py-0.5 text-xs bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/30 rounded-full">AI-Powered</span>
-        </div>
+        </button>
 
         <div className="flex items-center gap-6">
           {/* View tabs */}
