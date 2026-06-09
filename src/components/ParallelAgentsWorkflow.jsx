@@ -162,6 +162,22 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     }
   }, [alert?.alert_id, agentStates, finalSummary, plan]);
 
+  // Save run on component unmount (e.g. switching to a different alert)
+  useEffect(() => {
+    return () => {
+      if (alert?.alert_id && (Object.keys(agentStates).length > 0 || finalSummary)) {
+        saveRun(alert.alert_id, {
+          plan,
+          stepResults: [],
+          summary: finalSummary,
+          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+          mode: 'parallel',
+          agentStates,
+        });
+      }
+    };
+  }, [alert?.alert_id, agentStates, finalSummary, plan]);
+
   const loadHistoricalRun = (run) => {
     const states = run.agentStates || initAgentState();
     setAgentStates(states);

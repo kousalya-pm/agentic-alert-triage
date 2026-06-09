@@ -85,6 +85,22 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     }
   }, [alert?.alert_id, stepResults, summary, plan]);
 
+  // Save run on component unmount (e.g. switching to a different alert)
+  // so no progress is lost when navigating away
+  useEffect(() => {
+    return () => {
+      if (alert?.alert_id && (stepResults.length > 0 || summary)) {
+        saveRun(alert.alert_id, {
+          plan,
+          stepResults,
+          summary,
+          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+          mode: 'standard',
+        });
+      }
+    };
+  }, [alert?.alert_id, plan, stepResults, summary]);
+
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
     setStepResults(run.stepResults);

@@ -68,6 +68,21 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     }
   }, [alert?.alert_id, stepResults, summary, plan]);
 
+  // Save run on component unmount (e.g. switching to a different alert)
+  useEffect(() => {
+    return () => {
+      if (alert?.alert_id && (stepResults.length > 0 || summary)) {
+        saveRun(alert.alert_id, {
+          plan,
+          stepResults,
+          summary,
+          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+          mode: 'adaptive',
+        });
+      }
+    };
+  }, [alert?.alert_id, plan, stepResults, summary]);
+
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
     setStepResults(run.stepResults);
