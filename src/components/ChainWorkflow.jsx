@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Play, ChevronRight, FileDown, RotateCcw, Zap, Search, ShieldAlert, Loader2, Link2 } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary, runQuickTriage, planEscalationSteps } from '../services/aiService.js';
 import { executeTool } from '../services/toolService.js';
