@@ -12,6 +12,7 @@ import EntityPanel from './components/EntityPanel.jsx';
 import UserPage from './pages/UserPage.jsx';
 import AssetPage from './pages/AssetPage.jsx';
 import { loadAlerts } from './services/csvService.js';
+import { groupAlerts, buildIncidentAlert } from './services/incidentService.js';
 
 const DEFAULT_SETTINGS = {
   aiProvider: 'anthropic',
@@ -71,10 +72,27 @@ function MainApp() {
   // Select alert from URL — runs on initial load and whenever alertId changes
   useEffect(() => {
     if (!alertId || alerts.length === 0) return;
-    const found = alerts.find(a => a.alert_id === alertId);
-    if (found) {
-      setSelectedAlert(found);
-      setActiveView('queue');
+
+    // Check if URL is for an incident (INC-*) or regular alert (ALT-*)
+    if (alertId.startsWith('INC-')) {
+      // Reconstruct incident from its key
+      // Key format: INC-{entity_id} where entity_id is user_id, hostname, or src_ip
+      const incidentKey = alertId.substring(4); // Remove 'INC-' prefix
+      const groups = groupAlerts(alerts);
+      const incidentGroup = groups.find(g => g.key === incidentKey);
+
+      if (incidentGroup) {
+        const incidentAlert = buildIncidentAlert(incidentGroup);
+        setSelectedAlert(incidentAlert);
+        setActiveView('queue');
+      }
+    } else {
+      // Regular alert lookup
+      const found = alerts.find(a => a.alert_id === alertId);
+      if (found) {
+        setSelectedAlert(found);
+        setActiveView('queue');
+      }
     }
   }, [alertId, alerts]);
 
