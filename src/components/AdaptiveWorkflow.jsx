@@ -55,6 +55,20 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'adaptive'));
 
+  // Auto-save run at any investigation stage so switching away doesn't lose progress
+  useEffect(() => {
+    if (alert?.alert_id && (stepResults.length > 0 || summary)) {
+      saveRun(alert.alert_id, {
+        plan,
+        stepResults,
+        summary,
+        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+        mode: 'adaptive',
+      });
+      refreshHistory();
+    }
+  }, [alert?.alert_id, stepResults, summary, plan]);
+
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
     setStepResults(run.stepResults);

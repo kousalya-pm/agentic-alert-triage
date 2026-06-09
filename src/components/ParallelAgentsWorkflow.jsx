@@ -148,6 +148,21 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'parallel'));
 
+  // Auto-save run at any investigation stage so switching away doesn't lose progress
+  useEffect(() => {
+    if (alert?.alert_id && (Object.keys(agentStates).length > 0 || finalSummary)) {
+      saveRun(alert.alert_id, {
+        plan,
+        stepResults: [],  // Parallel agents don't use sequential steps
+        summary: finalSummary,
+        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+        mode: 'parallel',
+        agentStates,
+      });
+      refreshHistory();
+    }
+  }, [alert?.alert_id, agentStates, finalSummary, plan]);
+
   const loadHistoricalRun = (run) => {
     const states = run.agentStates || initAgentState();
     setAgentStates(states);

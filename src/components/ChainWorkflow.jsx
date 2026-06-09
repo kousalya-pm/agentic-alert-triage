@@ -65,6 +65,24 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'chain'));
 
+  // Auto-save run at any investigation stage so switching away doesn't lose progress
+  useEffect(() => {
+    if (alert?.alert_id && (tier1Results.length > 0 || tier2Results.length > 0 || tier3Results.length > 0 || finalSummary)) {
+      saveRun(alert.alert_id, {
+        plan: tier2Plan || null,
+        stepResults: [...tier1Results, ...tier2Results, ...tier3Results],
+        summary: finalSummary,
+        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+        mode: 'chain',
+        tier1Results,
+        tier2Results,
+        tier3Results,
+        tier2Plan,
+      });
+      refreshHistory();
+    }
+  }, [alert?.alert_id, tier1Results, tier2Results, tier3Results, finalSummary, tier2Plan]);
+
   const resetState = () => {
     setTier1Results([]); setRouting(null);
     setTier2Plan(null); setTier2Results([]); setTier2Summary(null);

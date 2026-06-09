@@ -72,6 +72,20 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'standard'));
 
+  // Auto-save run at any investigation stage so switching away doesn't lose progress
+  useEffect(() => {
+    if (alert?.alert_id && (stepResults.length > 0 || summary)) {
+      saveRun(alert.alert_id, {
+        plan,
+        stepResults,
+        summary,
+        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
+        mode: 'standard',
+      });
+      refreshHistory();
+    }
+  }, [alert?.alert_id, stepResults, summary, plan]);
+
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
     setStepResults(run.stepResults);
