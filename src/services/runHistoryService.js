@@ -1,5 +1,5 @@
 const HISTORY_KEY = 'acme-soc-run-history';
-const MAX_RUNS_PER_ALERT = 5;
+const MAX_RUNS_PER_MODE = 10;  // Changed: 10 runs per mode, not 5 global
 const CURRENT_VERSION = 2;
 
 function loadAll() {
@@ -27,7 +27,17 @@ migrateAlertIds();
 // extras: any additional mode-specific data (e.g. agentStates for parallel)
 export function saveRun(alertId, { plan, stepResults, summary, elapsed, mode = 'standard', ...extras }) {
   const all = loadAll();
-  const runs = all[alertId] || [];
+  const allRuns = all[alertId] || [];
+
+  // NEW: Only save once per run (check if last run is identical timestamp within 1 second)
+  // This prevents duplicate saves from useRunAutosave cleanup
+  const now = Date.now();
+  const lastRun = allRuns[0];
+  if (lastRun && lastRun.mode === mode && (now - new Date(lastRun.timestamp).getTime()) < 1000) {
+    // Skip duplicate save — same mode, same second
+    return lastRun;
+  }
+
   const newRun = {
     version: CURRENT_VERSION,
     runId: `${alertId}_${mode}_${Date.now()}`,
@@ -40,7 +50,9 @@ export function saveRun(alertId, { plan, stepResults, summary, elapsed, mode = '
     summary,
     ...extras,
   };
-  all[alertId] = [newRun, ...runs].slice(0, MAX_RUNS_PER_ALERT);
+
+  // Keep MAX_RUNS_PER_MODE per alert, but preserve runs from all modes
+  all[alertId] = [newRun, ...allRuns].slice(0, MAX_RUNS_PER_MODE);
   localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
   return newRun;
 }
