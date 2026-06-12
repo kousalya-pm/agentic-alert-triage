@@ -350,7 +350,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
         {phase === PHASE.IDLE && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
             <button
-              onClick={handleRun}
+              onClick={runTriage}
               className="w-12 h-12 rounded-xl bg-[#00d4ff]/10 border border-[#00d4ff]/20 flex items-center justify-center hover:bg-[#00d4ff]/20 hover:border-[#00d4ff]/40 transition-colors"
               title="Run AI Triage"
             >
