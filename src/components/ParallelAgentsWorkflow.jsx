@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRunAutosave } from '../hooks/useRunAutosave.js';
 import { Play, AlertTriangle, CheckCircle, XCircle, FileDown, Users, Cpu } from 'lucide-react';
 import { runSpecialistAgent, synthesizeSpecialistReports } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
@@ -132,6 +133,17 @@ const initAgentState = () =>
 // ─── Component ─────────────────────────────────────────────────────────────────
 
 export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
+  if (!alert?.alert_id) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-[#7a9cc0]">
+        <div className="text-center">
+          <p className="text-sm mb-2">No alert selected</p>
+          <p className="text-xs text-[#4a6080]">Click an alert to begin triage</p>
+        </div>
+      </div>
+    );
+  }
+
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [agentStates, setAgentStates] = useState(initAgentState);
   const [summary, setSummary] = useState(null);
@@ -148,35 +160,15 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'parallel'));
 
-  // Auto-save run at any investigation stage so switching away doesn't lose progress
-  useEffect(() => {
-    if (alert?.alert_id && (Object.keys(agentStates).length > 0 || finalSummary)) {
-      saveRun(alert.alert_id, {
-        plan,
-        stepResults: [],  // Parallel agents don't use sequential steps
-        summary: finalSummary,
-        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-        mode: 'parallel',
-        agentStates,
-      });
-    }
-  }, [alert?.alert_id, agentStates, finalSummary, plan]);
-
-  // Save run on component unmount (e.g. switching to a different alert)
-  useEffect(() => {
-    return () => {
-      if (alert?.alert_id && (Object.keys(agentStates).length > 0 || finalSummary)) {
-        saveRun(alert.alert_id, {
-          plan,
-          stepResults: [],
-          summary: finalSummary,
-          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-          mode: 'parallel',
-          agentStates,
-        });
-      }
-    };
-  }, [alert?.alert_id, agentStates, finalSummary, plan]);
+  useRunAutosave({
+    alertId: alert.alert_id,
+    mode: 'parallel',
+    plan,
+    stepResults: [],  // Parallel doesn't use sequential steps
+    summary: finalSummary,
+    startTimeRef: startTime,
+    extraData: { agentStates },
+  });
 
   const loadHistoricalRun = (run) => {
     const states = run.agentStates || initAgentState();

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useRunAutosave } from '../hooks/useRunAutosave.js';
 import { Play, ChevronRight, FileDown, RotateCcw, Zap, Search, ShieldAlert, Loader2, Link2 } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary, runQuickTriage, planEscalationSteps } from '../services/aiService.js';
 import { executeTool } from '../services/toolService.js';
@@ -45,6 +46,17 @@ function pickTier1Tools(alert) {
 }
 
 export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
+  if (!alert?.alert_id) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-[#7a9cc0]">
+        <div className="text-center">
+          <p className="text-sm mb-2">No alert selected</p>
+          <p className="text-xs text-[#4a6080]">Click an alert to begin triage</p>
+        </div>
+      </div>
+    );
+  }
+
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [tier1Results, setTier1Results] = useState([]);
   const [routing, setRouting] = useState(null);
@@ -65,41 +77,15 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'chain'));
 
-  // Auto-save run at any investigation stage so switching away doesn't lose progress
-  useEffect(() => {
-    if (alert?.alert_id && (tier1Results.length > 0 || tier2Results.length > 0 || tier3Results.length > 0 || finalSummary)) {
-      saveRun(alert.alert_id, {
-        plan: tier2Plan || null,
-        stepResults: [...tier1Results, ...tier2Results, ...tier3Results],
-        summary: finalSummary,
-        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-        mode: 'chain',
-        tier1Results,
-        tier2Results,
-        tier3Results,
-        tier2Plan,
-      });
-    }
-  }, [alert?.alert_id, tier1Results, tier2Results, tier3Results, finalSummary, tier2Plan]);
-
-  // Save run on component unmount (e.g. switching to a different alert)
-  useEffect(() => {
-    return () => {
-      if (alert?.alert_id && (tier1Results.length > 0 || tier2Results.length > 0 || tier3Results.length > 0 || finalSummary)) {
-        saveRun(alert.alert_id, {
-          plan: tier2Plan || null,
-          stepResults: [...tier1Results, ...tier2Results, ...tier3Results],
-          summary: finalSummary,
-          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-          mode: 'chain',
-          tier1Results,
-          tier2Results,
-          tier3Results,
-          tier2Plan,
-        });
-      }
-    };
-  }, [alert?.alert_id, tier1Results, tier2Results, tier3Results, finalSummary, tier2Plan]);
+  useRunAutosave({
+    alertId: alert.alert_id,
+    mode: 'chain',
+    plan: tier2Plan || null,
+    stepResults: [...tier1Results, ...tier2Results, ...tier3Results],
+    summary: finalSummary,
+    startTimeRef: startTime,
+    extraData: { tier1Results, tier2Results, tier3Results, tier2Plan },
+  });
 
   const resetState = () => {
     setTier1Results([]); setRouting(null);

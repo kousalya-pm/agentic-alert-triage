@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useRunAutosave } from '../hooks/useRunAutosave.js';
 import { Link } from 'react-router-dom';
 import { Play, AlertTriangle, FileDown, GitMerge, History, RotateCcw, Sparkles } from 'lucide-react';
 import { generateInvestigationPlan, generateFinalSummary, checkForAdditionalSteps } from '../services/aiService.js';
@@ -35,6 +36,17 @@ const PHASE = {
 };
 
 export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
+  if (!alert?.alert_id) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-[#7a9cc0]">
+        <div className="text-center">
+          <p className="text-sm mb-2">No alert selected</p>
+          <p className="text-xs text-[#4a6080]">Click an alert to begin triage</p>
+        </div>
+      </div>
+    );
+  }
+
   const [phase, setPhase] = useState(PHASE.IDLE);
   const [plan, setPlan] = useState(null);
   const [stepResults, setStepResults] = useState([]);
@@ -55,33 +67,14 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
 
   const refreshHistory = () => setRunHistory(getRuns(alert.alert_id, 'adaptive'));
 
-  // Auto-save run at any investigation stage so switching away doesn't lose progress
-  useEffect(() => {
-    if (alert?.alert_id && (stepResults.length > 0 || summary)) {
-      saveRun(alert.alert_id, {
-        plan,
-        stepResults,
-        summary,
-        elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-        mode: 'adaptive',
-      });
-    }
-  }, [alert?.alert_id, stepResults, summary, plan]);
-
-  // Save run on component unmount (e.g. switching to a different alert)
-  useEffect(() => {
-    return () => {
-      if (alert?.alert_id && (stepResults.length > 0 || summary)) {
-        saveRun(alert.alert_id, {
-          plan,
-          stepResults,
-          summary,
-          elapsed: Math.round((Date.now() - (startTime.current || Date.now())) / 1000) || 0,
-          mode: 'adaptive',
-        });
-      }
-    };
-  }, [alert?.alert_id, plan, stepResults, summary]);
+  useRunAutosave({
+    alertId: alert.alert_id,
+    mode: 'adaptive',
+    plan,
+    stepResults,
+    summary,
+    startTimeRef: startTime,
+  });
 
   const loadHistoricalRun = (run) => {
     setPlan(run.plan);
