@@ -281,16 +281,16 @@ function AlertRow({ alert, isSelected, decision, onClick, onEntityClick, nested 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 text-[10px] text-[#7a9cc0]">
           {alert.user_id && (
-            <button
+            <div
               onClick={e => { e.stopPropagation(); onEntityClick?.('user', alert.user_id); }}
-              className="hover:text-[#00d4ff] transition-colors"
-            >👤 {alert.user_id}</button>
+              className="hover:text-[#00d4ff] transition-colors cursor-pointer"
+            >👤 {alert.user_id}</div>
           )}
           {alert.hostname && (
-            <button
+            <div
               onClick={e => { e.stopPropagation(); onEntityClick?.('asset', alert.hostname); }}
-              className="hover:text-[#00d4ff] transition-colors"
-            >💻 {alert.hostname}</button>
+              className="hover:text-[#00d4ff] transition-colors cursor-pointer"
+            >💻 {alert.hostname}</div>
           )}
         </div>
         <span className="text-[10px] text-[#7a9cc0]">{timeStr}</span>

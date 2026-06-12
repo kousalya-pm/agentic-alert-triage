@@ -163,9 +163,9 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   useRunAutosave({
     alertId: alert.alert_id,
     mode: 'parallel',
-    plan,
+    plan: null,  // Parallel mode doesn't have a plan phase
     stepResults: [],  // Parallel doesn't use sequential steps
-    summary: finalSummary,
+    summary,
     startTimeRef: startTime,
     extraData: { agentStates },
   });
