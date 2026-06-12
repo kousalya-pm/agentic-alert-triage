@@ -36,7 +36,7 @@ const PHASE = {
 };
 
 export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
-  if (!alert?.alert_id) {
+  if (!alert) {
     return (
       <div className="flex-1 flex items-center justify-center text-[#7a9cc0]">
         <div className="text-center">

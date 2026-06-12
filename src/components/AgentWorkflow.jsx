@@ -48,12 +48,26 @@ export const PRIORITY_COLOR = { IMMEDIATE: 'text-red-400', SHORT_TERM: 'text-ora
 
 export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntityClick, onRunningChange }) {
   // Guard: alert must be present and have required fields
-  if (!alert?.alert_id) {
+  if (!alert) {
     return (
       <div className="flex-1 flex items-center justify-center text-[#7a9cc0]">
         <div className="text-center">
           <p className="text-sm mb-2">No alert selected</p>
           <p className="text-xs text-[#4a6080]">Click an alert to begin triage</p>
+        </div>
+      </div>
+    );
+  }
+
+  // If alert doesn't have required fields, show warning but try to render
+  const alertId = alert?.alert_id || alert?.id;
+  if (!alertId) {
+    console.error('Alert missing alert_id:', alert);
+    return (
+      <div className="flex-1 flex items-center justify-center text-red-400">
+        <div className="text-center">
+          <p className="text-sm mb-2">Invalid alert structure</p>
+          <p className="text-xs text-red-300">{JSON.stringify(alert).substring(0, 100)}</p>
         </div>
       </div>
     );
