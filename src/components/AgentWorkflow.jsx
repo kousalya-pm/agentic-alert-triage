@@ -7,6 +7,7 @@ import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
 import { saveRun, getRuns } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
+import { saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
 const ACTIONS_KEY = 'acme-soc-action-checks';
@@ -247,6 +248,15 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
       clearInterval(timerRef.current);
       const finalElapsed = Math.floor((Date.now() - startTime.current) / 1000);
       saveRun(alert.alert_id, { plan: investigationPlan, stepResults: results, summary: finalSummary, elapsed: finalElapsed, mode: 'standard' });
+
+      // Save investigation to history (v1.1)
+      try {
+        const payload = buildInvestigationPayload(alert, 'standard', finalSummary, finalElapsed, investigationPlan);
+        await saveInvestigation(payload);
+      } catch (err) {
+        console.warn('Failed to save investigation to history:', err);
+      }
+
       refreshHistory();
 
     } catch (err) {

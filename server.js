@@ -5,6 +5,7 @@
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import { saveInvestigation, getInvestigationHistory } from './src/services/investigationHistoryService.js';
 
 const app = express();
 const PORT = process.env.PROXY_PORT || 3001;
@@ -18,6 +19,26 @@ const getKey = (req, envVar) => process.env[envVar] || req.headers['x-api-key'] 
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ─── Investigation History (v1.1 Agent Memory) ───────────────────────────────
+app.post('/api/investigations/save', async (req, res) => {
+  try {
+    const investigation = req.body;
+    const result = await saveInvestigation(investigation);
+    res.json({ status: 'saved', ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Investigation save failed', detail: err.message });
+  }
+});
+
+app.get('/api/investigations', async (req, res) => {
+  try {
+    const history = await getInvestigationHistory();
+    res.json({ status: 'ok', count: history.length, data: history });
+  } catch (err) {
+    res.status(500).json({ error: 'Investigation history retrieval failed', detail: err.message });
+  }
 });
 
 // ─── IP Geolocation (ip-api.com — free, no key needed) ───────────────────────
