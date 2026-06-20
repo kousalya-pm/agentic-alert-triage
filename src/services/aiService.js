@@ -52,7 +52,7 @@ const MAX_TOKENS_PLAN    = 4096; // raised: incident plans with 6-8 steps + rati
 const MAX_TOKENS_SUMMARY = 8192; // raised: incident synthesis needs room for full narratives
 
 // ─── Call 1: Generate investigation plan ──────────────────────────────────────
-export async function generateInvestigationPlan(alert, settings) {
+export async function generateInvestigationPlan(alert, settings, insights = null) {
   const isIncident = !!alert._isIncident;
 
   // Build a lean alert object for the plan prompt — strip internal metadata
@@ -74,10 +74,18 @@ All IPs:    ${[...(_entityIds?.srcIps || []), ...(_entityIds?.dstIps || [])].fil
 
 Your plan must cover ALL entities above and each ATT&CK stage visible in the incident.` : '';
 
+  // Add historical learning if insights are available
+  const insightsNote = insights && insights.total_investigations > 0 ? `
+
+📊 HISTORICAL LEARNING FROM ${insights.total_investigations} PAST INVESTIGATIONS:
+- Overall accuracy: ${Math.round(insights.overall_accuracy * 100)}%
+${insights.top_tools && insights.top_tools.length > 0 ? `- Most effective tools: ${insights.top_tools.slice(0, 3).map(t => `${t.tool} (${Math.round(t.accuracy * 100)}%)`).join(', ')}` : ''}
+- Prioritize these tools based on historical effectiveness.` : '';
+
   const prompt = `Investigate this security ${isIncident ? 'INCIDENT' : 'alert'} and generate a structured plan.
 
 ALERT:
-${JSON.stringify(alertForPlan)}${incidentNote}
+${JSON.stringify(alertForPlan)}${incidentNote}${insightsNote}
 
 Generate ${isIncident ? '6-8' : '4-6'} targeted steps. Keep rationale to 1-2 sentences.
 

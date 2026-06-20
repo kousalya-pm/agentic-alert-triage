@@ -8,6 +8,7 @@ import { exportTriageReport } from '../services/reportService.js';
 import { saveRun, getRuns } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
 import { saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
+import { getInsights } from '../services/insightsClient.js';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
 const ACTIONS_KEY = 'acme-soc-action-checks';
@@ -219,8 +220,11 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     startTime.current = Date.now();
 
     try {
+      // ── Fetch insights for historical learning (v1.1) ──
+      const insights = await getInsights();
+
       // ── Phase 1: Generate investigation plan ──
-      const investigationPlan = await generateInvestigationPlan(alert, settings);
+      const investigationPlan = await generateInvestigationPlan(alert, settings, insights);
       setPlan(investigationPlan);
       setPhase(PHASE.INVESTIGATING);
 

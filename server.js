@@ -5,7 +5,13 @@
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import fs from 'fs';
+import path from 'path';
 import { saveInvestigation, getInvestigationHistory } from './src/services/investigationHistoryService.js';
+
+const execAsync = promisify(exec);
 
 const app = express();
 const PORT = process.env.PROXY_PORT || 3001;
@@ -22,10 +28,40 @@ app.get('/api/health', (req, res) => {
 });
 
 // ─── Investigation History (v1.1 Agent Memory) ───────────────────────────────
+
+// Helper: Run analytics computation
+async function runAnalytics() {
+  try {
+    await execAsync('python3 analytics/compute_insights.py');
+    return true;
+  } catch (err) {
+    console.warn('Analytics computation failed:', err.message);
+    return false;
+  }
+}
+
+// Helper: Load insights from file
+function loadInsights() {
+  try {
+    const insightsPath = path.join('data', 'insights.json');
+    if (fs.existsSync(insightsPath)) {
+      const data = fs.readFileSync(insightsPath, 'utf-8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    console.warn('Failed to load insights:', err.message);
+  }
+  return null;
+}
+
 app.post('/api/investigations/save', async (req, res) => {
   try {
     const investigation = req.body;
     const result = await saveInvestigation(investigation);
+
+    // Trigger analytics computation (async, don't wait)
+    runAnalytics().catch(err => console.warn('Analytics computation error:', err));
+
     res.json({ status: 'saved', ...result });
   } catch (err) {
     res.status(500).json({ error: 'Investigation save failed', detail: err.message });
@@ -38,6 +74,15 @@ app.get('/api/investigations', async (req, res) => {
     res.json({ status: 'ok', count: history.length, data: history });
   } catch (err) {
     res.status(500).json({ error: 'Investigation history retrieval failed', detail: err.message });
+  }
+});
+
+app.get('/api/insights', (req, res) => {
+  const insights = loadInsights();
+  if (insights) {
+    res.json({ status: 'ok', data: insights });
+  } else {
+    res.status(404).json({ status: 'not_found', message: 'No insights available yet. Run investigations first.' });
   }
 });
 
