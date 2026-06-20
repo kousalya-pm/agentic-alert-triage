@@ -1,0 +1,4 @@
+alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity
+ALT-2026-001,2026-06-20T23:21:58.386Z,standard,TP,8.5,,,user_lookup|ip_geo|watchlist_check,42,Execution|Persistence,High,Sensitive
+ALT-2026-002,2026-06-20T23:22:46.321Z,adaptive,FP,2.1,FP,correct,user_lookup|siem_query,38,Initial Access,Low,NonSensitive
+ALT-2026-003,2026-06-20T23:22:46.332Z,parallel,TP,9.2,TP,correct,user_lookup|ip_geo|virustotal|watchlist_check,78,Execution|Exfiltration,Critical,Sensitive
