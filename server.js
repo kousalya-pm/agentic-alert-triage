@@ -105,6 +105,36 @@ app.post('/api/investigations/feedback', async (req, res) => {
   }
 });
 
+app.post('/api/investigations/bulk-feedback', async (req, res) => {
+  try {
+    const { decisions } = req.body;
+
+    if (!decisions || !Array.isArray(decisions)) {
+      return res.status(400).json({ error: 'decisions must be an array' });
+    }
+
+    let updated = 0;
+    const results = [];
+
+    for (const { alertId, timestamp, decision } of decisions) {
+      try {
+        const result = await recordAnalystFeedback(alertId, timestamp, decision);
+        results.push({ ...result, status: 'ok' });
+        updated++;
+      } catch (err) {
+        results.push({ alertId, timestamp, status: 'error', error: err.message });
+      }
+    }
+
+    // Trigger analytics recomputation (async, don't wait)
+    runAnalytics().catch(err => console.warn('Analytics computation error:', err));
+
+    res.json({ status: 'bulk_complete', updated, total: decisions.length, results });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record bulk feedback', detail: err.message });
+  }
+});
+
 // ─── IP Geolocation (ip-api.com — free, no key needed) ───────────────────────
 app.get('/api/ip-geo/:ip', async (req, res) => {
   const { ip } = req.params;
