@@ -1,6 +1,6 @@
 {
-  "timestamp": null,
-  "total_investigations": 1,
+  "timestamp": 1782011002.8342528,
+  "total_investigations": 2,
   "overall_accuracy": null,
   "verified_investigations": 0,
   "tool_effectiveness": {},
@@ -8,7 +8,7 @@
   "mode_performance": {
     "standard": {
       "accuracy": null,
-      "avg_time_sec": 113.0,
+      "avg_time_sec": 110.5,
       "total_runs": 0,
       "verified_runs": 0
     },

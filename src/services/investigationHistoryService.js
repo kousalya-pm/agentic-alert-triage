@@ -179,7 +179,7 @@ export async function getInvestigationsByMode(mode) {
 /**
  * Update investigation with analyst feedback
  * @param {string} alertId - Alert ID
- * @param {string} timestamp - Investigation timestamp (may not match exactly)
+ * @param {string} timestamp - Investigation timestamp
  * @param {string} analystDecision - Analyst decision (TP/FP/Escalate)
  * @returns {Object} - Updated record
  */
@@ -187,18 +187,17 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
   ensureCSVHeader();
 
   try {
-    // Read original CSV
-    const content = fs.readFileSync(path.join(DATA_DIR, 'investigation_history.csv'), 'utf-8');
+    const csvPath = path.join(DATA_DIR, 'investigation_history.csv');
+    const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n');
 
-    // Find matching investigations - first try exact timestamp, then fallback to just alertId
-    let matchedCount = 0;
+    let updated = false;
     const updatedLines = lines.map(line => {
       if (!line.trim()) return line;
       const parsed = parseCSVLine(line);
 
-      // Match by alert_id + timestamp (exact)
-      if (parsed.alert_id === alertId && parsed.timestamp === timestamp) {
+      // Match by alertId and update any row without feedback yet
+      if (parsed.alert_id === alertId && !parsed.accuracy_flag) {
         const aiVerdict = parsed.verdict;
         const isCorrect =
           (aiVerdict === 'TP' && analystDecision === 'TP') ||
@@ -207,7 +206,6 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
 
         const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
 
-        // Reconstruct CSV row
         const fields = [
           parsed.alert_id,
           parsed.timestamp,
@@ -222,68 +220,22 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
           parsed.asset_criticality,
           parsed.data_sensitivity
         ];
-        matchedCount++;
+        updated = true;
         return fields.map(escapeCSVField).join(',');
       }
       return line;
     });
 
-    // Fallback: if no exact timestamp match, find by alertId only (use most recent)
-    if (matchedCount === 0) {
-      // Sort to find most recent investigation for this alert
-      const investigations = await getInvestigationHistory();
-      const alertInvestigations = investigations.filter(inv => inv.alert_id === alertId);
-
-      if (alertInvestigations.length === 0) {
-        throw new Error(`No investigations found for alert: ${alertId}`);
-      }
-
-      // Update all investigations for this alert (they all get the same analyst decision)
-      const aiVerdict = alertInvestigations[0].verdict;
-      const isCorrect =
-        (aiVerdict === 'TP' && analystDecision === 'TP') ||
-        (aiVerdict === 'FP' && analystDecision === 'FP') ||
-        (aiVerdict === 'NEEDS_ESCALATION' && analystDecision === 'Escalate');
-
-      const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
-
-      // Update all rows for this alert
-      const updatedLines2 = lines.map(line => {
-        if (!line.trim()) return line;
-        const parsed = parseCSVLine(line);
-        if (parsed.alert_id === alertId && !parsed.accuracy_flag) {
-          const fields = [
-            parsed.alert_id,
-            parsed.timestamp,
-            parsed.mode,
-            parsed.verdict,
-            parsed.ai_score,
-            analystDecision,
-            accuracyFlag,
-            parsed.tools_used,
-            parsed.investigation_time_sec,
-            parsed.kill_chain_tactics,
-            parsed.asset_criticality,
-            parsed.data_sensitivity
-          ];
-          matchedCount++;
-          return fields.map(escapeCSVField).join(',');
-        }
-        return line;
-      });
-
-      // Write back to CSV with fallback updates
-      fs.writeFileSync(path.join(DATA_DIR, 'investigation_history.csv'), updatedLines2.join('\n'), 'utf-8');
-    } else {
-      // Write back to CSV with exact timestamp updates
-      fs.writeFileSync(path.join(DATA_DIR, 'investigation_history.csv'), updatedLines.join('\n'), 'utf-8');
+    if (!updated) {
+      throw new Error(`No pending investigations found for alert: ${alertId}`);
     }
+
+    fs.writeFileSync(csvPath, updatedLines.join('\n'), 'utf-8');
 
     return {
       alert_id: alertId,
       analyst_decision: analystDecision,
-      accuracy_flag: analystDecision === 'TP' || analystDecision === 'FP' ? 'pending' : 'pending',
-      matched: matchedCount
+      status: 'recorded'
     };
   } catch (err) {
     throw new Error(`Failed to record analyst feedback: ${err.message}`);
