@@ -231,7 +231,7 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
     // Fallback: if no exact timestamp match, find by alertId only (use most recent)
     if (matchedCount === 0) {
       // Sort to find most recent investigation for this alert
-      const investigations = getInvestigationHistory();
+      const investigations = await getInvestigationHistory();
       const alertInvestigations = investigations.filter(inv => inv.alert_id === alertId);
 
       if (alertInvestigations.length === 0) {

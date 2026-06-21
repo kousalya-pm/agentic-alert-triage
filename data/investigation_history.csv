@@ -1,0 +1,2 @@
+alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity
+INC-WKSTN-FIN-055,2026-06-21T03:03:22.755Z,standard,NEEDS_ESCALATION,9.9,,,asset_lookup|siem_query|user_lookup|watchlist_check|siem_query|abuseipdb|virustotal_url|siem_query,113,,Unknown,Unknown
