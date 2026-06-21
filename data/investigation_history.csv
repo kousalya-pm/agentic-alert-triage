@@ -11,3 +11,4 @@ INC-ci-deploy-prod,2026-06-21T01:57:45.938Z,standard,NEEDS_ESCALATION,9.6,,,user
 ALT-2026-006,2026-06-21T02:05:24.321Z,standard,TRUE_POSITIVE,9.8,,,asset_lookup|siem_query|watchlist_check|user_lookup|virustotal_url|siem_query,86,,Unknown,Unknown
 ALT-2026-018,2026-06-21T02:07:33.211Z,standard,NEEDS_ESCALATION,9.4,,,asset_lookup|siem_query|user_lookup|siem_query|siem_query|watchlist_check,77,,Unknown,Unknown
 ALT-2026-002,2026-06-21T02:09:04.143Z,standard,NEEDS_ESCALATION,9.2,,,user_lookup|siem_query|virustotal_url|watchlist_check|urlscan|asset_lookup,82,,Unknown,Unknown
+ALT-2026-022,2026-06-21T02:18:47.727Z,standard,NEEDS_ESCALATION,9.1,,,user_lookup|asset_lookup|siem_query|virustotal_url|watchlist_check|urlscan,72,,Unknown,Unknown

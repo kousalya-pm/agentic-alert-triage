@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRunAutosave } from '../hooks/useRunAutosave.js';
-import { Play, AlertTriangle, CheckCircle, XCircle, FileDown, Users, Cpu } from 'lucide-react';
+import { Play, AlertTriangle, CheckCircle, XCircle, FileDown, Users, Cpu, ChevronDown, ChevronRight } from 'lucide-react';
 import { runSpecialistAgent, synthesizeSpecialistReports } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
@@ -11,6 +11,7 @@ import {
   AnalystActions, SummaryPanel, RiskLevelBadge,
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel, oneLineSummary } from '../services/riskHeuristic.js';
+import { getInsights } from '../services/insightsClient.js';
 
 // ─── Specialist definitions ────────────────────────────────────────────────────
 
@@ -154,6 +155,8 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   const [runHistory, setRunHistory] = useState(() => getRuns(alert.alert_id, 'parallel'));
   const [viewingRunId, setViewingRunId] = useState(null);
   const [escalationTicket, setEscalationTicket] = useState(null);
+  const [insights, setInsights] = useState(null);
+  const [insightsExpanded, setInsightsExpanded] = useState(false);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -266,6 +269,10 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     setElapsed(0);
     setRiskLabel('UNKNOWN');
     setAnalystDecision(null);
+
+    // Fetch insights for historical learning (v1.1)
+    const fetchedInsights = await getInsights();
+    setInsights(fetchedInsights);
 
     // Assign tools upfront — no AI call needed for planning
     const assignments = SPECIALISTS.map(s => ({
@@ -472,6 +479,60 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
             {error}
             {error?.includes('API key') && (
               <button onClick={onOpenSettings} className="mt-3 block text-xs underline text-red-400 hover:text-red-300">Open Settings →</button>
+            )}
+          </div>
+        )}
+
+        {/* Historical Learning Context (v1.1) */}
+        {insights && insights.total_investigations > 0 && (
+          <div className="p-4 bg-[#0d1f2a] border border-[#1e4d5c] rounded-xl">
+            <button
+              onClick={() => setInsightsExpanded(!insightsExpanded)}
+              className="w-full flex items-start justify-between gap-3 text-left"
+            >
+              <div className="flex-1">
+                <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">📊 Historical Learning Active</h3>
+                <p className="text-sm text-[#e2eaf5]">
+                  Agents using insights from <strong>{insights.total_investigations}</strong> past investigations
+                  {insights.overall_accuracy !== null && ` • Overall accuracy: ${Math.round(insights.overall_accuracy * 100)}%`}
+                </p>
+              </div>
+              <div className="text-[#7a9cc0] shrink-0">
+                {insightsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+            </button>
+
+            {insightsExpanded && (
+              <div className="mt-3 space-y-2 pt-3 border-t border-[#1e4d5c]">
+                {insights.top_tools && insights.top_tools.length > 0 && (
+                  <div>
+                    <p className="text-xs text-[#7a9cc0] font-semibold mb-1">Most Effective Tools:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {insights.top_tools.slice(0, 5).map((t, i) => (
+                        <span key={i} className="text-xs px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-cyan-300">
+                          {t.tool}: {Math.round(t.accuracy * 100)}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {insights.mode_performance && (
+                  <div>
+                    <p className="text-xs text-[#7a9cc0] font-semibold mb-1">Workflow Performance:</p>
+                    <div className="space-y-1">
+                      {['standard', 'adaptive', 'parallel', 'chain'].map(mode => {
+                        const perf = insights.mode_performance[mode];
+                        if (!perf || perf.total_runs === 0) return null;
+                        return (
+                          <div key={mode} className="text-xs text-[#8b949e]">
+                            <span className="capitalize font-medium text-[#e2eaf5]">{mode}:</span> {perf.total_runs} runs • {perf.accuracy ? `${Math.round(perf.accuracy * 100)}% accurate` : 'pending'} • {perf.avg_time_sec}s avg
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

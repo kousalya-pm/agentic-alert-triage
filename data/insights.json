@@ -1,6 +1,6 @@
 {
-  "timestamp": 1782007653.2651007,
-  "total_investigations": 12,
+  "timestamp": 1782007744.1916578,
+  "total_investigations": 13,
   "overall_accuracy": 1.0,
   "verified_investigations": 3,
   "tool_effectiveness": {
@@ -35,7 +35,7 @@
   "mode_performance": {
     "standard": {
       "accuracy": 1.0,
-      "avg_time_sec": 84.0,
+      "avg_time_sec": 82.9,
       "total_runs": 1,
       "verified_runs": 1
     },
@@ -59,16 +59,17 @@
     }
   },
   "similar_cases": {
-    "ALT-2026-018": [],
-    "ALT-2026-004": [],
-    "ALT-2026-003": [],
     "INC-bwilson": [],
-    "ALT-2026-001": [],
     "INC-lmartinez": [],
+    "ALT-2026-003": [],
     "ALT-2026-006": [],
-    "ALT-2026-002": [],
+    "ALT-2026-022": [],
+    "ALT-2026-001": [],
     "INC-ci-deploy-prod": [],
-    "INC-mchen": [],
-    "INC-rhayes": []
+    "ALT-2026-018": [],
+    "ALT-2026-002": [],
+    "INC-rhayes": [],
+    "ALT-2026-004": [],
+    "INC-mchen": []
   }
 }
