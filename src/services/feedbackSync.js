@@ -5,6 +5,7 @@
 
 export async function syncDecisionsToBackend() {
   const DECISIONS_KEY = 'acme-soc-decisions';
+  const RUN_HISTORY_KEY = 'acme-soc-run-history';
   const API_BASE = 'http://localhost:3001/api';
 
   try {
@@ -25,34 +26,46 @@ export async function syncDecisionsToBackend() {
 
     console.log(`[v1.1] Found ${alertIds.length} decisions to sync...`);
 
-    // Get run history for each alert to find timestamps
+    // Get run history (stored as single object with alertId keys)
+    const runHistoryRaw = localStorage.getItem(RUN_HISTORY_KEY);
+    const allRunHistory = runHistoryRaw ? JSON.parse(runHistoryRaw) : {};
+
+    // Build decision records
     const decisions = [];
     for (const alertId of alertIds) {
       const decision = decisionsMap[alertId];
-      if (!decision || !decision.action) continue;
+      if (!decision || !decision.action) {
+        console.log(`[v1.1] Skipping ${alertId}: no action`);
+        continue;
+      }
 
-      // Get run history from localStorage
-      const runHistoryRaw = localStorage.getItem(`acme-soc-run-history-${alertId}`);
-      if (!runHistoryRaw) continue;
-
-      const runHistory = JSON.parse(runHistoryRaw);
-      if (!runHistory || runHistory.length === 0) continue;
+      // Get runs for this alert
+      const runs = allRunHistory[alertId];
+      if (!runs || runs.length === 0) {
+        console.log(`[v1.1] Skipping ${alertId}: no run history`);
+        continue;
+      }
 
       // Map action to decision format
       const actionMap = {
         tp: 'TP',
         fp: 'FP',
         escalate: 'Escalate',
+        confirm_tp: 'TP',
+        mark_fp: 'FP',
         TP: 'TP',
         FP: 'FP',
         Escalate: 'Escalate'
       };
 
       const analystDecision = actionMap[decision.action];
-      if (!analystDecision) continue;
+      if (!analystDecision) {
+        console.log(`[v1.1] Skipping ${alertId}: unknown action ${decision.action}`);
+        continue;
+      }
 
       // Add each run as a separate decision record
-      for (const run of runHistory) {
+      for (const run of runs) {
         decisions.push({
           alertId,
           timestamp: run.timestamp,
@@ -63,7 +76,7 @@ export async function syncDecisionsToBackend() {
 
     if (decisions.length === 0) {
       console.log('[v1.1] No valid decisions found to sync');
-      return { status: 'no_valid_data', message: 'No valid decisions to sync' };
+      return { status: 'no_valid_data', message: 'No valid decisions to sync', debugInfo: { decisionsCount: alertIds.length, runHistoryKeys: Object.keys(allRunHistory).length } };
     }
 
     console.log(`[v1.1] Syncing ${decisions.length} decision records...`);

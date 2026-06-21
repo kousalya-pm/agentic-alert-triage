@@ -1,5 +1,5 @@
 {
-  "timestamp": 1782007744.1916578,
+  "timestamp": 1782010444.6763275,
   "total_investigations": 13,
   "overall_accuracy": 1.0,
   "verified_investigations": 3,
@@ -59,17 +59,17 @@
     }
   },
   "similar_cases": {
-    "INC-bwilson": [],
+    "ALT-2026-022": [],
+    "INC-ci-deploy-prod": [],
+    "ALT-2026-001": [],
     "INC-lmartinez": [],
+    "INC-mchen": [],
+    "INC-rhayes": [],
+    "ALT-2026-002": [],
+    "ALT-2026-004": [],
+    "ALT-2026-018": [],
     "ALT-2026-003": [],
     "ALT-2026-006": [],
-    "ALT-2026-022": [],
-    "ALT-2026-001": [],
-    "INC-ci-deploy-prod": [],
-    "ALT-2026-018": [],
-    "ALT-2026-002": [],
-    "INC-rhayes": [],
-    "ALT-2026-004": [],
-    "INC-mchen": []
+    "INC-bwilson": []
   }
 }
