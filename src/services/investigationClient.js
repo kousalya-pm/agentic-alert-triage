@@ -76,3 +76,31 @@ export function buildInvestigationPayload(alert, mode, summary, investigationTim
     dataSensitivity: alert.data_sensitivity || 'Unknown'
   };
 }
+
+/**
+ * Record analyst feedback on an investigation
+ * @param {string} alertId - Alert ID
+ * @param {string} timestamp - Investigation timestamp
+ * @param {string} analystDecision - What analyst confirmed (TP/FP/Escalate)
+ * @returns {Promise<Object>} - Feedback recording result
+ */
+export async function recordAnalystFeedback(alertId, timestamp, analystDecision) {
+  try {
+    const response = await fetch(`${API_BASE}/investigations/feedback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertId, timestamp, analystDecision })
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('[v1.1] Feedback recorded:', data);
+    return data;
+  } catch (err) {
+    console.error('Failed to record analyst feedback:', err);
+    throw err;
+  }
+}

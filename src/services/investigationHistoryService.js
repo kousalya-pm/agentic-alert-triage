@@ -177,6 +177,84 @@ export async function getInvestigationsByMode(mode) {
 }
 
 /**
+ * Update investigation with analyst feedback
+ * @param {string} alertId - Alert ID
+ * @param {string} timestamp - Investigation timestamp
+ * @param {string} analystDecision - Analyst decision (TP/FP/Escalate)
+ * @returns {Object} - Updated record
+ */
+export async function recordAnalystFeedback(alertId, timestamp, analystDecision) {
+  ensureCSVHeader();
+
+  try {
+    // Read all investigations
+    const history = await getInvestigationHistory();
+
+    // Find the matching investigation
+    const investigation = history.find(inv =>
+      inv.alert_id === alertId && inv.timestamp === timestamp
+    );
+
+    if (!investigation) {
+      throw new Error(`Investigation not found: ${alertId} at ${timestamp}`);
+    }
+
+    // Determine accuracy: compare AI verdict with analyst decision
+    const aiVerdict = investigation.verdict;
+    const isCorrect =
+      (aiVerdict === 'TP' && analystDecision === 'TP') ||
+      (aiVerdict === 'FP' && analystDecision === 'FP') ||
+      (aiVerdict === 'NEEDS_ESCALATION' && analystDecision === 'Escalate');
+
+    const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
+
+    // Read original CSV
+    const content = fs.readFileSync(path.join(DATA_DIR, 'investigation_history.csv'), 'utf-8');
+    const lines = content.split('\n');
+
+    // Update the matching line
+    const updatedLines = lines.map(line => {
+      if (!line.trim()) return line;
+      const parsed = parseCSVLine(line);
+      if (parsed.alert_id === alertId && parsed.timestamp === timestamp) {
+        // Update the row
+        parsed.analyst_decision = analystDecision;
+        parsed.accuracy_flag = accuracyFlag;
+        // Reconstruct CSV row
+        const fields = [
+          parsed.alert_id,
+          parsed.timestamp,
+          parsed.mode,
+          parsed.verdict,
+          parsed.ai_score,
+          analystDecision,
+          accuracyFlag,
+          parsed.tools_used,
+          parsed.investigation_time_sec,
+          parsed.kill_chain_tactics,
+          parsed.asset_criticality,
+          parsed.data_sensitivity
+        ];
+        return fields.map(escapeCSVField).join(',');
+      }
+      return line;
+    });
+
+    // Write back to CSV
+    fs.writeFileSync(path.join(DATA_DIR, 'investigation_history.csv'), updatedLines.join('\n'), 'utf-8');
+
+    return {
+      alert_id: alertId,
+      analyst_decision: analystDecision,
+      accuracy_flag: accuracyFlag,
+      is_correct: isCorrect
+    };
+  } catch (err) {
+    throw new Error(`Failed to record analyst feedback: ${err.message}`);
+  }
+}
+
+/**
  * Compute accuracy statistics
  * @returns {Object} - Overall accuracy metrics
  */

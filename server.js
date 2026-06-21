@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import fs from 'fs';
 import path from 'path';
-import { saveInvestigation, getInvestigationHistory } from './src/services/investigationHistoryService.js';
+import { saveInvestigation, getInvestigationHistory, recordAnalystFeedback } from './src/services/investigationHistoryService.js';
 
 const execAsync = promisify(exec);
 
@@ -83,6 +83,25 @@ app.get('/api/insights', (req, res) => {
     res.json({ status: 'ok', data: insights });
   } else {
     res.status(404).json({ status: 'not_found', message: 'No insights available yet. Run investigations first.' });
+  }
+});
+
+app.post('/api/investigations/feedback', async (req, res) => {
+  try {
+    const { alertId, timestamp, analystDecision } = req.body;
+
+    if (!alertId || !timestamp || !analystDecision) {
+      return res.status(400).json({ error: 'Missing required fields: alertId, timestamp, analystDecision' });
+    }
+
+    const result = await recordAnalystFeedback(alertId, timestamp, analystDecision);
+
+    // Trigger analytics recomputation (async, don't wait)
+    runAnalytics().catch(err => console.warn('Analytics computation error:', err));
+
+    res.json({ status: 'recorded', ...result });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to record feedback', detail: err.message });
   }
 });
 

@@ -10,6 +10,7 @@ import {
   RunHistoryBar, formatAge, AnalystActions, ResultDisplay, SummaryPanel,
 } from './AgentWorkflow.jsx';
 import { getInsights } from '../services/insightsClient.js';
+import { recordAnalystFeedback } from '../services/investigationClient.js';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }
@@ -119,9 +120,23 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
     resetState();
   };
 
-  const handleAction = (decision) => {
+  const handleAction = async (decision) => {
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
+
+    // Record feedback to improve learning (v1.1)
+    try {
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const analystDecision = decisionMap[decision] || decision;
+
+      if (runHistory.length > 0) {
+        const latestRun = runHistory[0];
+        await recordAnalystFeedback(alert.alert_id, latestRun.timestamp, analystDecision);
+        console.log('[v1.1] Analyst feedback recorded:', { alertId: alert.alert_id, decision: analystDecision });
+      }
+    } catch (err) {
+      console.warn('[v1.1] Failed to record feedback:', err);
+    }
   };
 
   async function runTriage() {

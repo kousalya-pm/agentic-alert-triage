@@ -13,6 +13,7 @@ import {
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel } from '../services/riskHeuristic.js';
 import { getInsights } from '../services/insightsClient.js';
+import { recordAnalystFeedback } from '../services/investigationClient.js';
 
 // Max dynamic steps the agent can inject during a single run
 const MAX_DYNAMIC_STEPS = 2;
@@ -110,7 +111,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setRiskLabel('UNKNOWN');
   };
 
-  const handleAnalystAction = (action, note = '') => {
+  const handleAnalystAction = async (action, note = '') => {
     if (!action) {
       saveDecision(alert.alert_id, null);
       setAnalystDecision(null);
@@ -131,6 +132,20 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
     window.dispatchEvent(new Event('soc-decisions-updated'));
+
+    // Record feedback to improve learning (v1.1)
+    try {
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const analystDecision = decisionMap[action] || action;
+
+      if (runHistory.length > 0) {
+        const latestRun = runHistory[0];
+        await recordAnalystFeedback(alert.alert_id, latestRun.timestamp, analystDecision);
+        console.log('[v1.1] Analyst feedback recorded:', { alertId: alert.alert_id, decision: analystDecision });
+      }
+    } catch (err) {
+      console.warn('[v1.1] Failed to record feedback:', err);
+    }
 
     if (action === 'escalate') {
       const num = 100 + parseInt(alert.alert_id?.replace(/\D/g, '') || '0', 10);

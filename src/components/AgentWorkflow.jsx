@@ -7,7 +7,7 @@ import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
 import { saveRun, getRuns } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
-import { saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
+import { saveInvestigation, buildInvestigationPayload, recordAnalystFeedback } from '../services/investigationClient.js';
 import { getInsights } from '../services/insightsClient.js';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
@@ -143,7 +143,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     setRiskLabel('UNKNOWN');
   };
 
-  const handleAnalystAction = (action, note = '') => {
+  const handleAnalystAction = async (action, note = '') => {
     if (!action) {
       // Undo
       saveDecision(alert.alert_id, null);
@@ -166,6 +166,22 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
     window.dispatchEvent(new Event('soc-decisions-updated'));
+
+    // Record feedback to improve learning (v1.1)
+    try {
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const analystDecision = decisionMap[action] || action;
+
+      // Find the investigation timestamp from run history
+      if (runHistory.length > 0) {
+        const latestRun = runHistory[0];
+        await recordAnalystFeedback(alert.alert_id, latestRun.timestamp, analystDecision);
+        console.log('[v1.1] Analyst feedback recorded:', { alertId: alert.alert_id, decision: analystDecision });
+      }
+    } catch (err) {
+      console.warn('[v1.1] Failed to record feedback:', err);
+      // Don't block UX if feedback recording fails
+    }
 
     if (action === 'escalate') {
       const num = 100 + parseInt(alert.alert_id?.replace(/\D/g, '') || '0', 10);
