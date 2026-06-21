@@ -85,6 +85,8 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   const [elapsed, setElapsed] = useState(0);
   const [riskLabel, setRiskLabel] = useState('UNKNOWN');
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
+  const [insights, setInsights] = useState(null);
+  const [insightsExpanded, setInsightsExpanded] = useState(false);
 
   // Notify parent when this workflow starts/stops running so the mode selector can lock
   const isRunningNow = phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING;
@@ -221,10 +223,13 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 
     try {
       // ── Fetch insights for historical learning (v1.1) ──
-      const insights = await getInsights();
+      const fetchedInsights = await getInsights();
+      setInsights(fetchedInsights);
+      console.log('[v1.1] Fetched insights:', fetchedInsights);
 
       // ── Phase 1: Generate investigation plan ──
-      const investigationPlan = await generateInvestigationPlan(alert, settings, insights);
+      const investigationPlan = await generateInvestigationPlan(alert, settings, fetchedInsights);
+      console.log('[v1.1] Investigation plan rationale:', investigationPlan.investigation_steps?.[0]?.rationale);
       setPlan(investigationPlan);
       setPhase(PHASE.INVESTIGATING);
 
@@ -404,6 +409,63 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
               <span className="spinner" />
               <span>AI agent is analyzing the alert and building investigation plan...</span>
             </div>
+          </div>
+        )}
+
+        {/* Historical Learning Context (v1.1) */}
+        {insights && insights.total_investigations > 0 && (
+          <div className="p-4 bg-[#0d1f2a] border border-[#1e4d5c] rounded-xl">
+            <button
+              onClick={() => setInsightsExpanded(!insightsExpanded)}
+              className="w-full flex items-start justify-between gap-3 text-left"
+            >
+              <div className="flex-1">
+                <h3 className="text-xs font-semibold text-cyan-400 uppercase tracking-wider mb-1">📊 Historical Learning Active</h3>
+                <p className="text-sm text-[#e2eaf5]">
+                  Agent using insights from <strong>{insights.total_investigations}</strong> past investigations
+                  {insights.overall_accuracy !== null && ` • Overall accuracy: ${Math.round(insights.overall_accuracy * 100)}%`}
+                </p>
+              </div>
+              <div className="text-[#7a9cc0] shrink-0">
+                {insightsExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </div>
+            </button>
+
+            {insightsExpanded && (
+              <div className="mt-3 space-y-2 pt-3 border-t border-[#1e4d5c]">
+                {/* Top tools */}
+                {insights.top_tools && insights.top_tools.length > 0 && (
+                  <div>
+                    <p className="text-xs text-[#7a9cc0] font-semibold mb-1">Most Effective Tools:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {insights.top_tools.slice(0, 5).map((t, i) => (
+                        <span key={i} className="text-xs px-2 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded text-cyan-300">
+                          {t.tool}: {Math.round(t.accuracy * 100)}%
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mode performance */}
+                {insights.mode_performance && (
+                  <div>
+                    <p className="text-xs text-[#7a9cc0] font-semibold mb-1">Workflow Performance:</p>
+                    <div className="space-y-1">
+                      {['standard', 'adaptive', 'parallel', 'chain'].map(mode => {
+                        const perf = insights.mode_performance[mode];
+                        if (!perf || perf.total_runs === 0) return null;
+                        return (
+                          <div key={mode} className="text-xs text-[#8b949e]">
+                            <span className="capitalize font-medium text-[#e2eaf5]">{mode}:</span> {perf.total_runs} runs • {perf.accuracy ? `${Math.round(perf.accuracy * 100)}% accurate` : 'pending'} • {perf.avg_time_sec}s avg
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -740,7 +802,12 @@ export function ToolStepCard({ step, index, isActive, isDone, isExpanded, result
           {isDone && !isExpanded && result ? (
             <p className="text-xs text-[#7a9cc0] mt-0.5 truncate">{oneLineSummary(step.tool, result)}</p>
           ) : (
-            <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
+            <>
+              <p className="text-xs text-[#8b949e] mt-0.5 italic truncate">"{step.question}"</p>
+              {step.rationale && (
+                <p className="text-xs text-[#7a9cc0] mt-1 leading-relaxed">{step.rationale}</p>
+              )}
+            </>
           )}
         </div>
 

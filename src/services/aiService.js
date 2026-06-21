@@ -82,10 +82,12 @@ Your plan must cover ALL entities above and each ATT&CK stage visible in the inc
 ${insights.top_tools && insights.top_tools.length > 0 ? `- Most effective tools: ${insights.top_tools.slice(0, 3).map(t => `${t.tool} (${Math.round(t.accuracy * 100)}%)`).join(', ')}` : ''}
 - Prioritize these tools based on historical effectiveness.` : '';
 
+  const learningApplied = insights && insights.total_investigations > 0 ? `\n\n**[Agent is using historical learning from ${insights.total_investigations} past investigations]**` : '';
+
   const prompt = `Investigate this security ${isIncident ? 'INCIDENT' : 'alert'} and generate a structured plan.
 
 ALERT:
-${JSON.stringify(alertForPlan)}${incidentNote}${insightsNote}
+${JSON.stringify(alertForPlan)}${incidentNote}${insightsNote}${learningApplied}
 
 Generate ${isIncident ? '6-8' : '4-6'} targeted steps. Keep rationale to 1-2 sentences.
 
