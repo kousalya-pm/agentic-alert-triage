@@ -1,3 +1,16 @@
-alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity
-INC-WKSTN-FIN-055,2026-06-21T03:03:22.755Z,standard,NEEDS_ESCALATION,9.9,,,asset_lookup|siem_query|user_lookup|watchlist_check|siem_query|abuseipdb|virustotal_url|siem_query,113,,Unknown,Unknown
-INC-WKSTN-FIN-055,2026-06-21T03:07:44.647Z,standard,NEEDS_ESCALATION,9.8,,,asset_lookup|siem_query|user_lookup|watchlist_check|virustotal_url|siem_query|ip_geo|abuseipdb,108,,Unknown,Unknown
+alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity,alert_category
+INC-WKSTN-FIN-055,2026-06-21T03:03:22.755Z,standard,NEEDS_ESCALATION,9.9,TP,correct,asset_lookup|siem_query|user_lookup|watchlist_check|siem_query|abuseipdb|virustotal_url|siem_query,113,,Unknown,Unknown,
+INC-WKSTN-FIN-055,2026-06-21T03:07:44.647Z,standard,NEEDS_ESCALATION,9.8,Escalate,correct,asset_lookup|siem_query|user_lookup|watchlist_check|virustotal_url|siem_query|ip_geo|abuseipdb,108,,Unknown,Unknown,
+INC-mchen,2026-06-21T03:25:28.764Z,standard,NEEDS_ESCALATION,9.4,TP,correct,user_lookup|asset_lookup|watchlist_check|watchlist_check|virustotal_url|urlscan|siem_query|siem_query,105,,Unknown,Unknown,
+ALT-2026-003,2026-06-21T03:28:00.428Z,standard,NEEDS_ESCALATION,9.4,TP,correct,user_lookup|ip_geo|abuseipdb|watchlist_check|siem_query|asset_lookup,73,,Unknown,Unknown,Identity
+ALT-2026-015,2026-06-21T03:31:15.278Z,standard,NEEDS_ESCALATION,9.6,Escalate,correct,user_lookup|asset_lookup|watchlist_check|virustotal_url|siem_query|urlscan,81,,Unknown,Unknown,Email
+INC-bwilson,2026-06-21T03:35:41.541Z,standard,NEEDS_ESCALATION,9.2,Escalate,correct,user_lookup|asset_lookup|siem_query|watchlist_check|ip_geo|abuseipdb|virustotal_url|siem_query,109,,Unknown,Unknown,
+INC-ptran,2026-06-21T03:37:37.146Z,standard,NEEDS_ESCALATION,9.1,FP,incorrect,user_lookup|asset_lookup|watchlist_check|virustotal_url|urlscan|abuseipdb|siem_query|watchlist_check,91,,Unknown,Unknown,
+ALT-2026-001,2026-06-21T03:39:13.608Z,standard,TRUE_POSITIVE,9.6,TP,incorrect,ip_geo|watchlist_check|abuseipdb|user_lookup|asset_lookup|siem_query,81,,Unknown,Unknown,Network
+INC-WKSTN-FIN-055,2026-06-23T01:21:57.530Z,standard,TRUE_POSITIVE,9.8,Escalate,incorrect,asset_lookup|siem_query|user_lookup|watchlist_check|siem_query|virustotal_url|siem_query|abuseipdb,120,,Unknown,Unknown,
+INC-WKSTN-FIN-055,2026-06-24T20:21:07.969Z,parallel,TRUE_POSITIVE,9.8,Escalate,incorrect,siem_query|ip_geo|abuseipdb|virustotal_ip|watchlist_check|asset_lookup,77,Defense Evasion / Impact,Unknown,Unknown,
+ALT-2026-013,2026-06-24T21:06:46.988Z,standard,NEEDS_ESCALATION,9.2,Escalate,correct,user_lookup|siem_query|watchlist_check|virustotal_url|asset_lookup|siem_query,91,Privilege Escalation / Persistence,Unknown,Unknown,Cloud
+ALT-2026-024,2026-06-24T21:15:55.968Z,standard,NEEDS_ESCALATION,9.2,Escalate,correct,user_lookup|siem_query|asset_lookup|watchlist_check|siem_query|watchlist_check,82,Persistence,Unknown,Unknown,Identity
+ALT-2026-002,2026-06-24T21:32:08.260Z,standard,NEEDS_ESCALATION,9.2,,,virustotal_url|urlscan|watchlist_check|user_lookup|siem_query|whois,92,Initial Access,Unknown,Unknown,Email
+INC-rhayes,2026-06-24T22:53:09.795Z,adaptive,NEEDS_ESCALATION,9.2,Escalate,correct,user_lookup|siem_query|virustotal_url|watchlist_check|whois|asset_lookup|ip_geo|abuseipdb|urlscan|urlscan,145,Initial Access / Credential Access,Unknown,Unknown
+ALT-2026-015,2026-06-24T22:57:07.985Z,chain,NEEDS_ESCALATION,8.5,,,user_lookup|asset_lookup|user_lookup|asset_lookup|watchlist_check|virustotal_url|siem_query|urlscan|whois|abuseipdb,160,Initial Access,Unknown,Unknown,Email

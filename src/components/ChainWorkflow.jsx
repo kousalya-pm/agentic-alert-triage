@@ -10,7 +10,8 @@ import {
   RunHistoryBar, formatAge, AnalystActions, ResultDisplay, SummaryPanel,
 } from './AgentWorkflow.jsx';
 import { getInsights } from '../services/insightsClient.js';
-import { recordAnalystFeedback } from '../services/investigationClient.js';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
+import SimilarCasesPanel from './SimilarCasesPanel.jsx';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }
@@ -126,7 +127,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
 
     // Record feedback to improve learning (v1.1)
     try {
-      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate', confirm_tp: 'TP', mark_fp: 'FP' };
       const analystDecision = decisionMap[decision] || decision;
 
       if (runHistory.length > 0) {
@@ -173,8 +174,9 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         setPhase(PHASE.DONE);
         clearInterval(timerRef.current);
         const fe = Math.floor((Date.now() - startTime.current) / 1000);
+        const closedPlan = { investigation_steps: t1Acc.map(r => ({ tool: r.tool, question: `Quick scan: ${r.tool}`, parameters: r.parameters })) };
         saveRun(alert.alert_id, {
-          plan: { investigation_steps: t1Acc.map(r => ({ tool: r.tool, question: `Quick scan: ${r.tool}`, parameters: r.parameters })) },
+          plan: closedPlan,
           stepResults: t1Acc.map(r => r.result),
           summary: closedSummary, elapsed: fe, mode: 'chain',
           tier1Results: t1Acc, routing: routingDecision,
@@ -182,6 +184,12 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
           tier3Steps: [], tier3Results: [],
         });
         refreshHistory();
+        try {
+          const payload = buildInvestigationPayload(alert, 'chain', closedSummary, fe, closedPlan);
+          await saveInvestigation(payload);
+        } catch (err) {
+          console.warn('[v1.1] Failed to save chain (close) investigation to history:', err);
+        }
         return;
       }
 
@@ -216,6 +224,12 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
           tier3Steps: [], tier3Results: [],
         });
         refreshHistory();
+        try {
+          const payload = buildInvestigationPayload(alert, 'chain', t2Sum, fe, plan);
+          await saveInvestigation(payload);
+        } catch (err) {
+          console.warn('[v1.1] Failed to save chain (T2) investigation to history:', err);
+        }
         return;
       }
 
@@ -256,6 +270,12 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         tier3Steps: t3StepList, tier3Results: t3Acc,
       });
       refreshHistory();
+      try {
+        const payload = buildInvestigationPayload(alert, 'chain', t3FinalSummary, fe, syntheticPlan);
+        await saveInvestigation(payload);
+      } catch (err) {
+        console.warn('[v1.1] Failed to save chain (T3) investigation to history:', err);
+      }
 
     } catch (err) {
       clearInterval(timerRef.current);
@@ -500,6 +520,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         {finalSummary && phase === PHASE.DONE && (
           <div className="space-y-3 pt-1">
             <SummaryPanel summary={finalSummary} elapsed={elapsed} alertId={alert.alert_id} />
+            <SimilarCasesPanel alert={alert} />
             <AnalystActions decision={analystDecision} aiVerdict={finalSummary.verdict} onAction={handleAction} />
           </div>
         )}

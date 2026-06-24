@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Routes, Route, useParams, useNavigate } from 'react-router-dom';
-import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users, Link2, ChevronDown } from 'lucide-react';
+import { Shield, Settings, Activity, AlertTriangle, LayoutDashboard, ListFilter, Zap, GitMerge, Users, Link2, ChevronDown, BarChart2 } from 'lucide-react';
 import AlertQueue from './components/AlertQueue.jsx';
 import AgentWorkflow from './components/AgentWorkflow.jsx';
 import AdaptiveWorkflow from './components/AdaptiveWorkflow.jsx';
@@ -8,6 +8,7 @@ import ParallelAgentsWorkflow from './components/ParallelAgentsWorkflow.jsx';
 import ChainWorkflow from './components/ChainWorkflow.jsx';
 import SettingsModal from './components/SettingsModal.jsx';
 import Dashboard from './components/Dashboard.jsx';
+import AnalyticsDashboard from './components/AnalyticsDashboard.jsx';
 import EntityPanel from './components/EntityPanel.jsx';
 import UserPage from './pages/UserPage.jsx';
 import AssetPage from './pages/AssetPage.jsx';
@@ -158,7 +159,15 @@ function MainApp() {
                 activeView === 'dashboard' ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]' : 'text-[#7a9cc0] hover:text-white'
               }`}
             >
-              <LayoutDashboard size={12} /> Dashboard
+              <LayoutDashboard size={12} /> SOC Dashboard
+            </button>
+            <button
+              onClick={() => setActiveView('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-colors ${
+                activeView === 'analytics' ? 'bg-[#0f1629] text-[#00d4ff] border border-[#1e2d4a]' : 'text-[#7a9cc0] hover:text-white'
+              }`}
+            >
+              <BarChart2 size={12} /> Agent Insights
             </button>
           </div>
 
@@ -203,8 +212,12 @@ function MainApp() {
 
       {/* ── Main layout ── */}
       <div className="flex flex-1 overflow-hidden">
-        {activeView === 'dashboard' ? (
-          <div className="flex-1 overflow-hidden">
+        {activeView === 'analytics' ? (
+          <div className="flex-1 overflow-hidden flex flex-col">
+            <AnalyticsDashboard />
+          </div>
+        ) : activeView === 'dashboard' ? (
+          <div className="flex-1 overflow-hidden flex flex-col">
             <Dashboard alerts={alerts} />
           </div>
         ) : (

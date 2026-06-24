@@ -58,14 +58,13 @@ export function buildInvestigationPayload(alert, mode, summary, investigationTim
     ? plan.investigation_steps.map(step => step.tool)
     : [];
 
-  const killChainTactics = summary?.mitre_assessment
-    ? Object.keys(summary.mitre_assessment).filter(
-        tactic => summary.mitre_assessment[tactic].detected
-      )
+  const killChainTactics = summary?.mitre_assessment?.tactic
+    ? [summary.mitre_assessment.tactic]
     : [];
 
   return {
     alertId: alert.alert_id,
+    alertCategory: alert.category || '',
     mode,
     verdict: summary?.verdict || 'UNKNOWN',
     aiScore: summary?.risk_score || 0,

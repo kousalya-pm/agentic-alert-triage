@@ -13,7 +13,8 @@ import {
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel } from '../services/riskHeuristic.js';
 import { getInsights } from '../services/insightsClient.js';
-import { recordAnalystFeedback } from '../services/investigationClient.js';
+import SimilarCasesPanel from './SimilarCasesPanel.jsx';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
 
 // Max dynamic steps the agent can inject during a single run
 const MAX_DYNAMIC_STEPS = 2;
@@ -135,7 +136,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
 
     // Record feedback to improve learning (v1.1)
     try {
-      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate', confirm_tp: 'TP', mark_fp: 'FP' };
       const analystDecision = decisionMap[action] || action;
 
       if (runHistory.length > 0) {
@@ -275,6 +276,12 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
         mode: 'adaptive',
       });
       refreshHistory();
+      try {
+        const payload = buildInvestigationPayload(alert, 'adaptive', finalSummary, finalElapsed, finalPlan);
+        await saveInvestigation(payload);
+      } catch (err) {
+        console.warn('[v1.1] Failed to save adaptive investigation to history:', err);
+      }
 
     } catch (err) {
       setError(err.message);
@@ -563,6 +570,9 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
         {summary && phase === PHASE.DONE && (
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
+
+        {/* Similar past cases (same category) */}
+        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
 
         {/* Analyst actions */}
         {phase === PHASE.DONE && (

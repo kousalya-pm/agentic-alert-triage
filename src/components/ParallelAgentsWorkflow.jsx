@@ -12,7 +12,8 @@ import {
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel, oneLineSummary } from '../services/riskHeuristic.js';
 import { getInsights } from '../services/insightsClient.js';
-import { recordAnalystFeedback } from '../services/investigationClient.js';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
+import SimilarCasesPanel from './SimilarCasesPanel.jsx';
 
 // ─── Specialist definitions ────────────────────────────────────────────────────
 
@@ -224,7 +225,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
 
     // Record feedback to improve learning (v1.1)
     try {
-      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate', confirm_tp: 'TP', mark_fp: 'FP' };
       const analystDecision = decisionMap[action] || action;
 
       if (runHistory.length > 0) {
@@ -367,6 +368,17 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
         agentStates: finalAgentStates,
       });
       refreshHistory();
+      try {
+        const parallelPlan = {
+          investigation_steps: assignments.flatMap(a =>
+            (a.toolCalls || []).map(tc => ({ tool: tc.tool, parameters: tc.parameters, question: `${a.name}: ${tc.tool}` }))
+          ),
+        };
+        const payload = buildInvestigationPayload(alert, 'parallel', finalSummary, finalElapsed, parallelPlan);
+        await saveInvestigation(payload);
+      } catch (err) {
+        console.warn('[v1.1] Failed to save parallel investigation to history:', err);
+      }
 
     } catch (err) {
       setError(err.message);
@@ -695,6 +707,9 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
         {summary && phase === PHASE.DONE && (
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
+
+        {/* Similar past cases (same category) */}
+        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
 
         {/* ── Analyst actions ── */}
         {phase === PHASE.DONE && (

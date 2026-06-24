@@ -5,7 +5,7 @@ const DATA_DIR = 'data';
 const CSV_FILE = path.join(DATA_DIR, 'investigation_history.csv');
 
 // CSV column order (matches schema in implementation plan)
-const CSV_HEADER = 'alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity';
+const CSV_HEADER = 'alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity,alert_category';
 
 // Ensure data directory exists
 function ensureDataDir() {
@@ -80,7 +80,8 @@ function investigationToCSVRow(investigation) {
     investigationTimeSec = 0,
     killChainTactics = [],
     assetCriticality = '',
-    dataSensitivity = ''
+    dataSensitivity = '',
+    alertCategory = ''
   } = investigation;
 
   // Convert arrays to pipe-delimited strings
@@ -99,7 +100,8 @@ function investigationToCSVRow(investigation) {
     investigationTimeSec,
     tacticsStr,
     assetCriticality,
-    dataSensitivity
+    dataSensitivity,
+    alertCategory
   ];
 
   return fields.map(escapeCSVField).join(',');
@@ -191,50 +193,56 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
     const content = fs.readFileSync(csvPath, 'utf-8');
     const lines = content.split('\n');
 
-    let updated = false;
-    const updatedLines = lines.map(line => {
-      if (!line.trim()) return line;
+    // Find the most recent row for this alert (last matching row wins)
+    let targetLineIndex = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
       const parsed = parseCSVLine(line);
-
-      // Match by alertId and update any row without feedback yet
-      if (parsed.alert_id === alertId && !parsed.accuracy_flag) {
-        const aiVerdict = parsed.verdict;
-        const isCorrect =
-          (aiVerdict === 'TP' && analystDecision === 'TP') ||
-          (aiVerdict === 'FP' && analystDecision === 'FP') ||
-          (aiVerdict === 'NEEDS_ESCALATION' && analystDecision === 'Escalate');
-
-        const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
-
-        const fields = [
-          parsed.alert_id,
-          parsed.timestamp,
-          parsed.mode,
-          parsed.verdict,
-          parsed.ai_score,
-          analystDecision,
-          accuracyFlag,
-          parsed.tools_used,
-          parsed.investigation_time_sec,
-          parsed.kill_chain_tactics,
-          parsed.asset_criticality,
-          parsed.data_sensitivity
-        ];
-        updated = true;
-        return fields.map(escapeCSVField).join(',');
+      if (parsed.alert_id === alertId) {
+        targetLineIndex = i;
       }
-      return line;
-    });
-
-    if (!updated) {
-      throw new Error(`No pending investigations found for alert: ${alertId}`);
     }
 
-    fs.writeFileSync(csvPath, updatedLines.join('\n'), 'utf-8');
+    if (targetLineIndex === -1) {
+      throw new Error(`No investigation found for alert: ${alertId}`);
+    }
+
+    const parsed = parseCSVLine(lines[targetLineIndex]);
+    const aiVerdict = parsed.verdict;
+    // NEEDS_ESCALATION + TP = correct (AI correctly flagged a real threat for escalation)
+    // NEEDS_ESCALATION + Escalate = correct (both agree escalation needed)
+    // NEEDS_ESCALATION + FP = incorrect (AI over-flagged a benign alert)
+    const isCorrect =
+      (aiVerdict === 'TP' && analystDecision === 'TP') ||
+      (aiVerdict === 'FP' && analystDecision === 'FP') ||
+      (aiVerdict === 'NEEDS_ESCALATION' && (analystDecision === 'Escalate' || analystDecision === 'TP'));
+
+    const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
+
+    const fields = [
+      parsed.alert_id,
+      parsed.timestamp,
+      parsed.mode,
+      parsed.verdict,
+      parsed.ai_score,
+      analystDecision,
+      accuracyFlag,
+      parsed.tools_used,
+      parsed.investigation_time_sec,
+      parsed.kill_chain_tactics,
+      parsed.asset_criticality,
+      parsed.data_sensitivity
+    ];
+
+    lines[targetLineIndex] = fields.map(escapeCSVField).join(',');
+    fs.writeFileSync(csvPath, lines.join('\n'), 'utf-8');
 
     return {
       alert_id: alertId,
       analyst_decision: analystDecision,
+      accuracy_flag: accuracyFlag,
+      is_correct: isCorrect,
       status: 'recorded'
     };
   } catch (err) {

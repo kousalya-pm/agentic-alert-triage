@@ -29,7 +29,9 @@ def load_investigations() -> List[Dict]:
             reader = csv.DictReader(f)
             for row in reader:
                 if row and any(row.values()):  # Skip empty rows
-                    investigations.append(row)
+                    # Normalize None values (DictReader fills missing columns with None)
+                    normalized = {k: (v if v is not None else '') for k, v in row.items()}
+                    investigations.append(normalized)
     except Exception as e:
         print(f"Error reading CSV: {e}")
         return []
@@ -72,17 +74,14 @@ def compute_mode_performance(investigations: List[Dict]) -> Dict[str, Dict]:
     Compute performance metrics per mode.
     Returns: { mode: { accuracy, avg_time, total_runs } }
     """
-    mode_stats = defaultdict(lambda: {'correct': 0, 'total': 0, 'times': []})
+    mode_stats = defaultdict(lambda: {'correct': 0, 'verified': 0, 'total_runs': 0, 'times': []})
 
     for inv in investigations:
         mode = inv.get('mode', 'unknown').lower()
         if not mode or mode == 'unknown':
             continue
 
-        if inv.get('accuracy_flag'):
-            mode_stats[mode]['total'] += 1
-            if inv['accuracy_flag'] == 'correct':
-                mode_stats[mode]['correct'] += 1
+        mode_stats[mode]['total_runs'] += 1
 
         if inv.get('investigation_time_sec'):
             try:
@@ -90,22 +89,28 @@ def compute_mode_performance(investigations: List[Dict]) -> Dict[str, Dict]:
             except ValueError:
                 pass
 
+        if inv.get('accuracy_flag') and inv['accuracy_flag'] in ('correct', 'incorrect'):
+            mode_stats[mode]['verified'] += 1
+            if inv['accuracy_flag'] == 'correct':
+                mode_stats[mode]['correct'] += 1
+
     # Format results
     performance = {}
     for mode in ['standard', 'adaptive', 'parallel', 'chain']:
         stats = mode_stats.get(mode, {})
-        total = stats.get('total', 0)
+        total_runs = stats.get('total_runs', 0)
+        verified = stats.get('verified', 0)
         correct = stats.get('correct', 0)
         times = stats.get('times', [])
 
-        accuracy = round(correct / total, 2) if total > 0 else None
+        accuracy = round(correct / verified, 2) if verified > 0 else None
         avg_time = round(sum(times) / len(times), 1) if times else None
 
         performance[mode] = {
             'accuracy': accuracy,
             'avg_time_sec': avg_time,
-            'total_runs': total,
-            'verified_runs': correct
+            'total_runs': total_runs,
+            'verified_runs': verified
         }
 
     return performance
@@ -126,59 +131,138 @@ def compute_verdict_accuracy(investigations: List[Dict]) -> Tuple[float, int]:
     return accuracy, len(verified)
 
 
+def compute_accuracy_trend(investigations: List[Dict]) -> List[Dict]:
+    """
+    Compute cumulative AI accuracy over chronological investigation order.
+    Only includes investigations that have analyst feedback (correct/incorrect).
+    Returns a list of {index, date, cumulative_accuracy, verified, correct}.
+    """
+    verified_invs = sorted(
+        [inv for inv in investigations if inv.get('accuracy_flag') in ('correct', 'incorrect')],
+        key=lambda x: x.get('timestamp', '')
+    )
+
+    result = []
+    correct = 0
+    for i, inv in enumerate(verified_invs):
+        correct += 1 if inv['accuracy_flag'] == 'correct' else 0
+        result.append({
+            'index': i + 1,
+            'date': inv.get('timestamp', '')[:10],
+            'cumulative_accuracy': round(correct / (i + 1), 2),
+            'verified': i + 1,
+            'correct': correct,
+        })
+
+    return result
+
+
+def compute_tools_by_category(investigations: List[Dict]) -> Dict[str, Dict]:
+    """
+    Compute tool usage frequency per alert category.
+    Each tool is counted once per investigation (deduped within a run).
+    Returns: { category: { tool: usage_count } }
+    """
+    cat_tools = defaultdict(lambda: defaultdict(int))
+
+    for inv in investigations:
+        category = inv.get('alert_category', '').strip()
+        if not category:
+            continue
+
+        tools = inv.get('tools_used', '').split('|') if inv.get('tools_used') else []
+        seen = set()
+        for tool in tools:
+            tool = tool.strip()
+            if tool and tool not in seen:
+                cat_tools[category][tool] += 1
+                seen.add(tool)
+
+    result = {}
+    for cat, tools in sorted(cat_tools.items()):
+        result[cat] = dict(sorted(tools.items(), key=lambda x: x[1], reverse=True)[:6])
+
+    return result
+
+
+def compute_category_performance(investigations: List[Dict]) -> Dict[str, Dict]:
+    """
+    Compute accuracy and run counts per alert category.
+    Returns: { category: { total_runs, verified_runs, accuracy } }
+    """
+    cat_stats = defaultdict(lambda: {'correct': 0, 'verified': 0, 'total_runs': 0})
+
+    for inv in investigations:
+        category = inv.get('alert_category', '').strip()
+        if not category:
+            continue
+
+        cat_stats[category]['total_runs'] += 1
+
+        if inv.get('accuracy_flag') and inv['accuracy_flag'] in ('correct', 'incorrect'):
+            cat_stats[category]['verified'] += 1
+            if inv['accuracy_flag'] == 'correct':
+                cat_stats[category]['correct'] += 1
+
+    result = {}
+    for cat, stats in sorted(cat_stats.items()):
+        verified = stats['verified']
+        result[cat] = {
+            'total_runs': stats['total_runs'],
+            'verified_runs': verified,
+            'accuracy': round(stats['correct'] / verified, 2) if verified > 0 else None
+        }
+
+    return result
+
+
 def find_similar_investigations(investigations: List[Dict], alert_id: str) -> Dict[str, List[Dict]]:
     """
     For each investigation, find similar past investigations.
-    Similarity based on: kill_chain_tactics, asset_criticality, data_sensitivity
+    Similarity based on: alert_category (primary), mode (secondary), feedback present (bonus).
     """
     similar_cases = defaultdict(list)
 
-    # Find target investigation
     target = next((inv for inv in investigations if inv.get('alert_id') == alert_id), None)
     if not target:
         return {}
 
-    target_tactics = set(target.get('kill_chain_tactics', '').split('|')) if target.get('kill_chain_tactics') else set()
-    target_criticality = target.get('asset_criticality', '')
-    target_sensitivity = target.get('data_sensitivity', '')
+    target_category = target.get('alert_category', '').strip()
+    target_mode = target.get('mode', '')
 
-    # Find similar cases
     candidates = []
     for inv in investigations:
         if inv.get('alert_id') == alert_id:
             continue
+        if not inv.get('analyst_decision'):
+            continue  # only show decided cases
 
-        inv_tactics = set(inv.get('kill_chain_tactics', '').split('|')) if inv.get('kill_chain_tactics') else set()
-        inv_criticality = inv.get('asset_criticality', '')
-        inv_sensitivity = inv.get('data_sensitivity', '')
-
-        # Calculate similarity score
         similarity_score = 0
 
-        # Tactic overlap (0-0.5 points)
-        if target_tactics and inv_tactics:
-            overlap = len(target_tactics & inv_tactics) / len(target_tactics | inv_tactics)
-            similarity_score += overlap * 0.5
+        # Category match — primary signal
+        if target_category and inv.get('alert_category', '').strip() == target_category:
+            similarity_score += 0.6
 
-        # Criticality match (0-0.25 points)
-        if target_criticality == inv_criticality:
-            similarity_score += 0.25
+        # Mode match — secondary signal
+        if target_mode and inv.get('mode', '') == target_mode:
+            similarity_score += 0.2
 
-        # Sensitivity match (0-0.25 points)
-        if target_sensitivity == inv_sensitivity:
-            similarity_score += 0.25
+        # Analyst feedback confirmed — prefer these
+        if inv.get('accuracy_flag') in ('correct', 'incorrect'):
+            similarity_score += 0.2
 
-        if similarity_score > 0.5:  # Threshold for similarity
+        if similarity_score >= 0.6:
             candidates.append({
                 'alert_id': inv.get('alert_id', ''),
                 'similarity': round(similarity_score, 2),
                 'verdict': inv.get('verdict', ''),
-                'tactics': inv.get('kill_chain_tactics', ''),
-                'criticality': inv_criticality,
-                'sensitivity': inv_sensitivity
+                'analyst_decision': inv.get('analyst_decision', ''),
+                'accuracy_flag': inv.get('accuracy_flag', ''),
+                'mode': inv.get('mode', ''),
+                'alert_category': inv.get('alert_category', ''),
+                'timestamp': inv.get('timestamp', ''),
             })
 
-    # Sort by similarity and limit to top 5
     candidates.sort(key=lambda x: x['similarity'], reverse=True)
     similar_cases[alert_id] = candidates[:5]
 
@@ -199,6 +283,9 @@ def main():
     tool_effectiveness = compute_tool_effectiveness(investigations)
     mode_performance = compute_mode_performance(investigations)
     overall_accuracy, verified_total = compute_verdict_accuracy(investigations)
+    category_performance = compute_category_performance(investigations)
+    accuracy_trend = compute_accuracy_trend(investigations)
+    tools_by_category = compute_tools_by_category(investigations)
 
     # Build similar cases for each unique alert
     alert_ids = set(inv.get('alert_id', '') for inv in investigations if inv.get('alert_id'))
@@ -222,6 +309,9 @@ def main():
         'tool_effectiveness': tool_effectiveness,
         'top_tools': [{'tool': t, 'accuracy': acc} for t, acc in top_tools],
         'mode_performance': mode_performance,
+        'category_performance': category_performance,
+        'accuracy_trend': accuracy_trend,
+        'tools_by_category': tools_by_category,
         'similar_cases': similar_cases
     }
 

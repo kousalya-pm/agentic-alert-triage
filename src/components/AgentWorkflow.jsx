@@ -9,6 +9,7 @@ import { saveRun, getRuns } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
 import { saveInvestigation, buildInvestigationPayload, recordAnalystFeedback } from '../services/investigationClient.js';
 import { getInsights } from '../services/insightsClient.js';
+import SimilarCasesPanel from './SimilarCasesPanel.jsx';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
 const ACTIONS_KEY = 'acme-soc-action-checks';
@@ -169,7 +170,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 
     // Record feedback to improve learning (v1.1)
     try {
-      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate' };
+      const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate', confirm_tp: 'TP', mark_fp: 'FP' };
       const analystDecision = decisionMap[action] || action;
 
       // Find the investigation timestamp from run history
@@ -540,6 +541,9 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
         {summary && phase === PHASE.DONE && (
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
+
+        {/* Similar past cases (same category) */}
+        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
 
         {/* Analyst Action Buttons */}
         {phase === PHASE.DONE && (
