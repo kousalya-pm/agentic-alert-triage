@@ -1,0 +1,101 @@
+{
+  "startedAt": 1782507235276,
+  "aiCalls": [
+    {
+      "name": "Plan",
+      "latencyMs": 33607,
+      "inputTokens": 674,
+      "outputTokens": 1570,
+      "cacheCreationTokens": 2311,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.03423825
+    },
+    {
+      "name": "Summarize",
+      "latencyMs": 95448,
+      "inputTokens": 1556,
+      "outputTokens": 4412,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0715413
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "rhayes"
+      },
+      "latencyMs": 8,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "LAPTOP-EXEC-001"
+      },
+      "latencyMs": 12,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 8,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 249,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 1488,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 808,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "user_id": "rhayes"
+      },
+      "latencyMs": 7,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "hostname": "LAPTOP-EXEC-001"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 2230,
+    "outputTokens": 5982,
+    "cacheCreationTokens": 2311,
+    "cacheReadTokens": 2311,
+    "estimatedCostUsd": 0.10577955,
+    "cacheSavingsUsd": 0.006239700000000001,
+    "cacheHitPct": 51,
+    "aiCallsCount": 2,
+    "toolCallsCount": 8,
+    "wallClockMs": 139207
+  }
+}

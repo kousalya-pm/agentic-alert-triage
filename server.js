@@ -56,8 +56,21 @@ function loadInsights() {
 
 app.post('/api/investigations/save', async (req, res) => {
   try {
-    const investigation = req.body;
-    const result = await saveInvestigation(investigation);
+    const { fullTrace, ...investigationData } = req.body;
+    const result = await saveInvestigation(investigationData);
+
+    // Persist full trace JSON alongside the CSV row
+    if (fullTrace && investigationData.timestamp) {
+      try {
+        const safeTs = investigationData.timestamp.replace(/[:.]/g, '-');
+        const filename = `${investigationData.alertId}_${safeTs}.json`;
+        const traceDir = path.join('data', 'traces');
+        fs.mkdirSync(traceDir, { recursive: true });
+        fs.writeFileSync(path.join(traceDir, filename), JSON.stringify(fullTrace, null, 2));
+      } catch (traceErr) {
+        console.warn('Trace file write failed:', traceErr.message);
+      }
+    }
 
     // Trigger analytics computation (async, don't wait)
     runAnalytics().catch(err => console.warn('Analytics computation error:', err));
@@ -66,6 +79,30 @@ app.post('/api/investigations/save', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Investigation save failed', detail: err.message });
   }
+});
+
+app.get('/api/traces/:traceId', (req, res) => {
+  const tracePath = path.join('data', 'traces', `${req.params.traceId}.json`);
+  if (!fs.existsSync(tracePath)) return res.status(404).json({ error: 'Trace not found' });
+  try {
+    res.json(JSON.parse(fs.readFileSync(tracePath, 'utf-8')));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read trace', detail: err.message });
+  }
+});
+
+app.post('/api/playbook/execute', (req, res) => {
+  const { actionId, alertId, title } = req.body;
+  if (!actionId) return res.status(400).json({ error: 'actionId required' });
+  res.json({
+    success: true,
+    actionId,
+    alertId,
+    title,
+    executedAt: new Date().toISOString(),
+    mock: true,
+    message: `Action "${title}" dispatched successfully (simulated)`,
+  });
 });
 
 app.get('/api/investigations', async (req, res) => {

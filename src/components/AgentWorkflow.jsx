@@ -5,11 +5,13 @@ import { Play, ChevronDown, ChevronRight, AlertTriangle, CheckCircle, XCircle, H
 import { generateInvestigationPlan, generateFinalSummary } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
-import { saveRun, getRuns } from '../services/runHistoryService.js';
+import { saveRun, getRuns, updateRun } from '../services/runHistoryService.js';
 import { computeRiskLevel, oneLineSummary, RISK_LEVEL_CONFIG } from '../services/riskHeuristic.js';
-import { saveInvestigation, buildInvestigationPayload, recordAnalystFeedback } from '../services/investigationClient.js';
+import { saveInvestigation, buildInvestigationPayload, recordAnalystFeedback, fetchSimilarCasesContext } from '../services/investigationClient.js';
+import { startTrace, getTrace } from '../services/investigationTracer.js';
+import PostInvestigationTabs from './PostInvestigationTabs.jsx';
 import { getInsights } from '../services/insightsClient.js';
-import SimilarCasesPanel from './SimilarCasesPanel.jsx';
+import AnalystChatBox from './AnalystChatBox.jsx';
 
 export const DECISIONS_KEY = 'acme-soc-decisions';
 const ACTIONS_KEY = 'acme-soc-action-checks';
@@ -88,6 +90,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   const [analystDecision, setAnalystDecision] = useState(() => loadDecisions()[alert.alert_id] || null);
   const [insights, setInsights] = useState(null);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
+  const [pastCasesInfo, setPastCasesInfo] = useState(null);
 
   // Notify parent when this workflow starts/stops running so the mode selector can lock
   const isRunningNow = phase === PHASE.PLANNING || phase === PHASE.INVESTIGATING || phase === PHASE.SYNTHESIZING;
@@ -124,7 +127,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     setActiveStep(-1);
     setExpandedSteps({});
     setViewingRunId(run.runId);
-    setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    setAnalystDecision(run.analystDecision || null);
     // Recompute risk label from stored results
     if (run.plan?.investigation_steps && run.stepResults) {
       const toolResults = run.stepResults.map((r, j) => ({ tool: run.plan.investigation_steps[j]?.tool, result: r }));
@@ -167,6 +170,10 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
     window.dispatchEvent(new Event('soc-decisions-updated'));
+
+    // Persist decision into the run object so loading that run restores it
+    const targetRunId = viewingRunId || runHistory[0]?.runId;
+    if (targetRunId) updateRun(alert.alert_id, targetRunId, { analystDecision: decision });
 
     // Record feedback to improve learning (v1.1)
     try {
@@ -214,7 +221,9 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
   }, [phase]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (phase !== PHASE.IDLE && phase !== PHASE.DONE) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [stepResults, phase]);
 
   const toggleStep = (i) => setExpandedSteps(prev => ({ ...prev, [i]: !prev[i] }));
@@ -226,6 +235,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
       return;
     }
 
+    startTrace();
     setPhase(PHASE.PLANNING);
     setPlan(null);
     setStepResults([]);
@@ -242,10 +252,13 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
       // ── Fetch insights for historical learning (v1.1) ──
       const fetchedInsights = await getInsights();
       setInsights(fetchedInsights);
-      console.log('[v1.1] Fetched insights:', fetchedInsights);
+
+      // ── Fetch similar past cases for active learning (v1.2) ──
+      const pastCases = await fetchSimilarCasesContext(alert.alert_id, alert.alert_category || alert.category);
+      if (pastCases) setPastCasesInfo(pastCases);
 
       // ── Phase 1: Generate investigation plan ──
-      const investigationPlan = await generateInvestigationPlan(alert, settings, fetchedInsights);
+      const investigationPlan = await generateInvestigationPlan(alert, settings, fetchedInsights, pastCases);
       console.log('[v1.1] Investigation plan rationale:', investigationPlan.investigation_steps?.[0]?.rationale);
       setPlan(investigationPlan);
       setPhase(PHASE.INVESTIGATING);
@@ -277,7 +290,7 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
 
       // Save investigation to history (v1.1)
       try {
-        const payload = buildInvestigationPayload(alert, 'standard', finalSummary, finalElapsed, investigationPlan);
+        const payload = buildInvestigationPayload(alert, 'standard', finalSummary, finalElapsed, investigationPlan, getTrace());
         await saveInvestigation(payload);
       } catch (err) {
         console.warn('Failed to save investigation to history:', err);
@@ -486,6 +499,16 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
           </div>
         )}
 
+        {/* Active Learning badge (v1.2) */}
+        {pastCasesInfo && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-500/20 rounded-lg text-xs text-amber-300">
+            <span>📋</span>
+            <span>
+              <strong>{pastCasesInfo.count}</strong> similar <strong>{pastCasesInfo.category}</strong> case{pastCasesInfo.count !== 1 ? 's' : ''} with analyst feedback injected into plan
+            </span>
+          </div>
+        )}
+
         {/* Investigation plan */}
         {plan && (
           <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl tool-call-enter">
@@ -542,8 +565,9 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
-        {/* Similar past cases (same category) */}
-        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
+        {phase === PHASE.DONE && summary && (
+          <PostInvestigationTabs alert={alert} summary={summary} settings={settings} trace={getTrace()} />
+        )}
 
         {/* Analyst Action Buttons */}
         {phase === PHASE.DONE && (
@@ -552,6 +576,10 @@ export default function AgentWorkflow({ alert, settings, onOpenSettings, onEntit
             aiVerdict={summary?.verdict}
             onAction={handleAnalystAction}
           />
+        )}
+
+        {phase === PHASE.DONE && (
+          <AnalystChatBox alert={alert} settings={settings} runId={viewingRunId || runHistory[0]?.runId} />
         )}
 
         <div ref={bottomRef} />
@@ -1242,6 +1270,7 @@ export function SummaryPanel({ summary, elapsed, alertId }) {
   const VIcon = verdict.icon;
 
   const [actionChecks, setActionChecks] = useState(() => loadActionChecks(alertId));
+  const [actionsExpanded, setActionsExpanded] = useState(false);
 
   const toggleCheck = (index) => {
     const current = actionChecks[index];
@@ -1328,7 +1357,11 @@ export function SummaryPanel({ summary, elapsed, alertId }) {
         )}
 
         {/* Recommended actions */}
-        {totalCount > 0 && (
+        {totalCount > 0 && (() => {
+          const SHOW = 2;
+          const visible = actionsExpanded ? summary.recommended_actions : summary.recommended_actions.slice(0, SHOW);
+          const hiddenCount = totalCount - SHOW;
+          return (
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-xs font-semibold text-[#8b949e] uppercase tracking-wider">Recommended Actions</h3>
@@ -1339,7 +1372,7 @@ export function SummaryPanel({ summary, elapsed, alertId }) {
               )}
             </div>
             <div className="space-y-2">
-              {summary.recommended_actions.map((a, i) => {
+              {visible.map((a, i) => {
                 const check = actionChecks[i];
                 const isDone = !!check?.checked;
                 return (
@@ -1387,8 +1420,18 @@ export function SummaryPanel({ summary, elapsed, alertId }) {
                 );
               })}
             </div>
+            {hiddenCount > 0 && (
+              <button
+                onClick={() => setActionsExpanded(e => !e)}
+                className="mt-2 text-[11px] text-[#7a9cc0] hover:text-white flex items-center gap-1 transition-colors"
+              >
+                <ChevronDown size={12} className={`transition-transform ${actionsExpanded ? 'rotate-180' : ''}`} />
+                {actionsExpanded ? 'Show less' : `Show ${hiddenCount} more`}
+              </button>
+            )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Escalation */}
         {summary.escalation_required && (

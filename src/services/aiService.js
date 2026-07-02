@@ -4,7 +4,35 @@
 //   [We execute all tool calls]
 //   Call 2: AI synthesizes results into final verdict + summary
 
+import { recordAiCall } from './investigationTracer.js';
+
 const CLAUDE_MODEL = 'claude-sonnet-4-6';
+
+// ─── Multi-model routing policy ───────────────────────────────────────────────
+// PM-owned rule: route by severity first, then category override for complex threats.
+const ROUTING_POLICY = {
+  severity: {
+    critical: 'claude-opus-4-8',
+    high:     'claude-sonnet-4-6',
+    medium:   'claude-haiku-4-5-20251001',
+    low:      'claude-haiku-4-5-20251001',
+  },
+  // These alert types are always complex — force Opus regardless of severity
+  categoryOverrides: {
+    'Lateral Movement':  'claude-opus-4-8',
+    'Data Exfiltration': 'claude-opus-4-8',
+    'Ransomware':        'claude-opus-4-8',
+    'Insider Threat':    'claude-opus-4-8',
+  },
+};
+
+export function resolveModel(alert, settings) {
+  if (settings?.aiProvider === 'openai') return null;
+  const category = alert?.category || alert?.alert_category || '';
+  const severity = (alert?.severity || '').toLowerCase();
+  if (ROUTING_POLICY.categoryOverrides[category]) return ROUTING_POLICY.categoryOverrides[category];
+  return ROUTING_POLICY.severity[severity] || CLAUDE_MODEL;
+}
 const OPENAI_MODEL = 'gpt-4o';
 
 // ─── System prompt shared across both providers ───────────────────────────────
@@ -110,7 +138,7 @@ const MAX_TOKENS_PLAN    = 4096; // raised: incident plans with 6-8 steps + rati
 const MAX_TOKENS_SUMMARY = 8192; // raised: incident synthesis needs room for full narratives
 
 // ─── Call 1: Generate investigation plan ──────────────────────────────────────
-export async function generateInvestigationPlan(alert, settings, insights = null) {
+export async function generateInvestigationPlan(alert, settings, insights = null, pastCases = null) {
   const isIncident = !!alert._isIncident;
 
   // Build a lean alert object for the plan prompt — strip internal metadata
@@ -142,10 +170,12 @@ ${insights.top_tools && insights.top_tools.length > 0 ? `- Most effective tools:
 
   const learningApplied = insights && insights.total_investigations > 0 ? `\n\n**[Agent is using historical learning from ${insights.total_investigations} past investigations]**` : '';
 
+  const pastCasesNote = pastCases?.text ? `\n\n${pastCases.text}` : '';
+
   const prompt = `Investigate this security ${isIncident ? 'INCIDENT' : 'alert'} and generate a structured plan.
 
 ALERT:
-${JSON.stringify(alertForPlan)}${incidentNote}${insightsNote}${learningApplied}
+${JSON.stringify(alertForPlan)}${incidentNote}${insightsNote}${pastCasesNote}${learningApplied}
 
 Generate ${isIncident ? '6-8' : '4-6'} targeted steps. Keep rationale to 1-2 sentences.
 
@@ -165,7 +195,7 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   ]
 }`;
 
-  return callAI(prompt, settings, MAX_TOKENS_PLAN);
+  return callAI(prompt, settings, MAX_TOKENS_PLAN, 'Plan', resolveModel(alert, settings));
 }
 
 // ─── Call 2: Synthesize results into final verdict ────────────────────────────
@@ -239,7 +269,7 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   "analyst_notes": "Any additional context or caveats for the analyst reviewing this"
 }`;
 
-  return callAI(prompt, settings, MAX_TOKENS_SUMMARY);
+  return callAI(prompt, settings, MAX_TOKENS_SUMMARY, 'Summarize', resolveModel(alert, settings));
 }
 
 // ─── Parallel mode: Run one specialist agent ──────────────────────────────────
@@ -293,11 +323,13 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   "confidence": 85
 }`;
 
-  return callAI(prompt, settings, 1024);
+  return callAI(prompt, settings, 1024, specialist.id, resolveModel(alert, settings));
 }
 
 // ─── Parallel mode: Orchestrator synthesises all specialist reports ────────────
-export async function synthesizeSpecialistReports(alert, specialistReports, settings) {
+export async function synthesizeSpecialistReports(alert, specialistReports, settings, pastCases = null) {
+  const pastCasesNote = pastCases?.text ? `\n\n${pastCases.text}` : '';
+
   const prompt = `You are the Orchestrator in a 4-agent parallel SOC triage system for Acme Corp. Four specialist agents — Identity, Network, Threat Intel, and Endpoint — have independently investigated an alert. Synthesise their findings into a final verdict.
 
 ALERT:
@@ -315,7 +347,7 @@ ${JSON.stringify({
 }, null, 2)}
 
 SPECIALIST REPORTS:
-${JSON.stringify(specialistReports, null, 2)}
+${JSON.stringify(specialistReports, null, 2)}${pastCasesNote}
 
 Synthesise all specialist input. Where specialists disagree, explain the tension. Weight HIGH/CRITICAL specialist contributions more heavily.
 
@@ -334,7 +366,7 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   "analyst_notes": "Any specialist disagreements or caveats worth flagging"
 }`;
 
-  return callAI(prompt, settings, MAX_TOKENS_SUMMARY);
+  return callAI(prompt, settings, MAX_TOKENS_SUMMARY, 'Orchestrate', resolveModel(alert, settings));
 }
 
 // ─── Call 2b (Adaptive mode): Check if a new step should be added ─────────────
@@ -382,7 +414,7 @@ OR
 
 Available tools: user_lookup, asset_lookup, siem_query, watchlist_check, ip_geo, whois, abuseipdb, virustotal_ip, virustotal_url, urlscan`;
 
-  return callAI(prompt, settings, 600);
+  return callAI(prompt, settings, 600, 'ReplanCheck', resolveModel(alert, settings));
 }
 
 // Extracts a compact, signal-rich summary from a tool result.
@@ -511,7 +543,7 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   "key_indicators": ["up to 3 specific data points that drove this decision"]
 }`;
 
-  return callAI(prompt, settings, 400);
+  return callAI(prompt, settings, 400, 'QuickTriage', resolveModel(alert, settings));
 }
 
 // ─── Chain mode: Tier 3 — plan additional corroborating steps ────────────────
@@ -546,24 +578,66 @@ Output a single raw JSON object. No preamble, no explanation, no markdown. Start
   "escalation_focus": "One sentence: what specifically are we trying to confirm?"
 }`;
 
-  return callAI(prompt, settings, 600);
+  return callAI(prompt, settings, 600, 'EscalationPlan', resolveModel(alert, settings));
+}
+
+// ─── Playbook: Generate remediation actions for a confirmed threat ─────────────
+
+export async function generatePlaybook(alert, summary, settings) {
+  const findings = (summary.key_findings || []).slice(0, 4).join('; ');
+  const recommendedActions = (summary.recommended_actions || []).map(a => a.action).join('; ');
+
+  const prompt = `You are a SOC automation engine for Acme Corp (financial services, ~500 employees, hybrid cloud). An AI investigation has concluded with verdict: ${summary.verdict}.
+
+ALERT:
+- ID: ${alert.alert_id}
+- Title: ${alert.title}
+- Category: ${alert.category || alert.alert_category || 'Unknown'}
+- Severity: ${alert.severity}
+- User: ${alert.user_id || 'N/A'} | Host: ${alert.hostname || 'N/A'} | Source IP: ${alert.src_ip || 'N/A'}
+
+KEY FINDINGS: ${findings}
+AGENT RECOMMENDATIONS: ${recommendedActions}
+
+Propose 2-4 concrete, prioritised remediation actions an analyst can approve with one click. Be specific to the alert type and findings. Use realistic system names (Zscaler ZIA, Active Directory/Okta, CrowdStrike/EDR, SIEM, ServiceNow).
+
+Output a single raw JSON array. No preamble. Start with [:
+[
+  {
+    "action_id": "unique_snake_case_id",
+    "title": "Short action title (5 words max)",
+    "description": "What exactly happens when this runs — be specific, mention the exact IP/user/host from the alert",
+    "target_system": "System name (e.g. Zscaler ZIA, Active Directory, CrowdStrike Falcon)",
+    "target_system_icon": "firewall|identity|endpoint|siem|ticketing",
+    "priority": "IMMEDIATE|SHORT_TERM|MONITOR",
+    "reversible": true,
+    "reversal_note": "How to undo (one sentence)"
+  }
+]`;
+
+  // Playbook minimum: Sonnet — don't use Haiku for high-stakes remediation decisions
+  const routed = resolveModel(alert, settings);
+  const playbookModel = routed === 'claude-haiku-4-5-20251001' ? 'claude-sonnet-4-6' : routed;
+  return callAI(prompt, settings, 1600, 'Playbook', playbookModel);
 }
 
 // ─── Core AI call dispatcher ──────────────────────────────────────────────────
 
-async function callAI(prompt, settings, maxTokens = MAX_TOKENS_PLAN) {
+async function callAI(prompt, settings, maxTokens = MAX_TOKENS_PLAN, caller = 'ai_call', model = null) {
   const provider = settings?.aiProvider || 'anthropic';
 
   if (provider === 'openai') {
-    return callOpenAI(prompt, settings, maxTokens);
+    return callOpenAI(prompt, settings, maxTokens, caller);
   }
-  return callClaude(prompt, settings, maxTokens);
+  return callClaude(prompt, settings, maxTokens, caller, model);
 }
 
-async function callClaude(prompt, settings, maxTokens) {
+async function callClaude(prompt, settings, maxTokens, caller = 'ai_call', model = null) {
   const apiKey = settings?.anthropicKey;
   if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings to add your key.');
 
+  const resolvedModel = model || CLAUDE_MODEL;
+  const t0 = Date.now();
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -574,7 +648,7 @@ async function callClaude(prompt, settings, maxTokens) {
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify({
-      model: CLAUDE_MODEL,
+      model: resolvedModel,
       max_tokens: maxTokens,
       temperature: 0,
       // System prompt as a content block with cache_control so the static SOC context
@@ -591,15 +665,16 @@ async function callClaude(prompt, settings, maxTokens) {
 
   const data = await response.json();
 
-  // Log cache stats so we can verify caching is working
+  const latencyMs = Date.now() - t0;
   if (data.usage) {
     const { input_tokens, cache_creation_input_tokens, cache_read_input_tokens, output_tokens } = data.usage;
     console.log(
-      `[Claude] tokens — input: ${input_tokens}, ` +
+      `[Claude:${caller}] ${latencyMs}ms — input: ${input_tokens}, ` +
       `cache_write: ${cache_creation_input_tokens ?? 0}, ` +
       `cache_read: ${cache_read_input_tokens ?? 0}, ` +
       `output: ${output_tokens}`
     );
+    recordAiCall(caller, data.usage, latencyMs, resolvedModel);
   }
 
   if (data.stop_reason === 'max_tokens') {
@@ -614,10 +689,11 @@ async function callClaude(prompt, settings, maxTokens) {
   return parseJSON(text);
 }
 
-async function callOpenAI(prompt, settings, maxTokens) {
+async function callOpenAI(prompt, settings, maxTokens, caller = 'ai_call') {
   const apiKey = settings?.openaiKey;
   if (!apiKey) throw new Error('OpenAI API key not configured. Go to Settings to add your key.');
 
+  const t0 = Date.now();
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -651,6 +727,13 @@ async function callOpenAI(prompt, settings, maxTokens) {
       `Try re-running — if it fails again, reduce the number of investigation steps.`
     );
   }
+
+  recordAiCall(caller, {
+    input_tokens: data.usage?.prompt_tokens ?? 0,
+    output_tokens: data.usage?.completion_tokens ?? 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  }, Date.now() - t0);
 
   const text = data.choices?.[0]?.message?.content || '';
   return parseJSON(text);

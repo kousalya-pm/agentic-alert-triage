@@ -65,3 +65,17 @@ export function getRuns(alertId, mode = null) {
   if (!mode) return versioned;
   return versioned.filter(r => (r.mode || 'standard') === mode);
 }
+
+// Patch fields on an existing run without replacing the whole object.
+export function updateRun(alertId, runId, updates) {
+  if (!alertId || !runId) return;
+  try {
+    const all = loadAll();
+    const runs = all[alertId];
+    if (!runs) return;
+    const idx = runs.findIndex(r => r.runId === runId);
+    if (idx === -1) return;
+    runs[idx] = { ...runs[idx], ...updates };
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(all));
+  } catch {}
+}

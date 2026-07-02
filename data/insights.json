@@ -1,66 +1,66 @@
 {
-  "timestamp": 1782341598.05354,
-  "total_investigations": 15,
-  "overall_accuracy": 0.69,
-  "verified_investigations": 13,
+  "timestamp": 1782760943.8674247,
+  "total_investigations": 28,
+  "overall_accuracy": 0.75,
+  "verified_investigations": 20,
   "tool_effectiveness": {
-    "abuseipdb": 0.56,
-    "asset_lookup": 0.69,
-    "ip_geo": 0.67,
-    "siem_query": 0.73,
-    "urlscan": 0.8,
-    "user_lookup": 0.75,
+    "abuseipdb": 0.67,
+    "asset_lookup": 0.81,
+    "ip_geo": 0.75,
+    "siem_query": 0.77,
+    "urlscan": 0.83,
+    "user_lookup": 0.81,
     "virustotal_ip": 0.0,
-    "virustotal_url": 0.78,
-    "watchlist_check": 0.69,
-    "whois": 1.0
+    "virustotal_url": 0.84,
+    "watchlist_check": 0.75,
+    "whois": 0.83
   },
   "top_tools": [
     {
-      "tool": "whois",
-      "accuracy": 1.0
+      "tool": "virustotal_url",
+      "accuracy": 0.84
     },
     {
       "tool": "urlscan",
-      "accuracy": 0.8
+      "accuracy": 0.83
     },
     {
-      "tool": "virustotal_url",
-      "accuracy": 0.78
+      "tool": "whois",
+      "accuracy": 0.83
+    },
+    {
+      "tool": "asset_lookup",
+      "accuracy": 0.81
     },
     {
       "tool": "user_lookup",
-      "accuracy": 0.75
-    },
-    {
-      "tool": "siem_query",
-      "accuracy": 0.73
+      "accuracy": 0.81
     }
   ],
   "mode_performance": {
     "standard": {
-      "accuracy": 0.73,
-      "avg_time_sec": 95.5,
-      "total_runs": 12,
-      "verified_runs": 11
+      "accuracy": 0.71,
+      "avg_time_sec": 95.2,
+      "total_runs": 19,
+      "verified_runs": 14
     },
     "adaptive": {
       "accuracy": 1.0,
-      "avg_time_sec": 145.0,
-      "total_runs": 1,
-      "verified_runs": 1
+      "avg_time_sec": 130.5,
+      "total_runs": 2,
+      "verified_runs": 2
     },
     "parallel": {
-      "accuracy": 0.0,
-      "avg_time_sec": 77.0,
-      "total_runs": 1,
-      "verified_runs": 1
+      "accuracy": 0.5,
+      "avg_time_sec": 76.3,
+      "total_runs": 3,
+      "verified_runs": 2
     },
     "chain": {
-      "accuracy": null,
-      "avg_time_sec": 160.0,
-      "total_runs": 1,
-      "verified_runs": 0
+      "accuracy": 1.0,
+      "avg_time_sec": 185.5,
+      "total_runs": 4,
+      "verified_runs": 2
     }
   },
   "category_performance": {
@@ -70,13 +70,23 @@
       "accuracy": 1.0
     },
     "Email": {
-      "total_runs": 3,
+      "total_runs": 5,
+      "verified_runs": 2,
+      "accuracy": 0.5
+    },
+    "Endpoint": {
+      "total_runs": 2,
       "verified_runs": 1,
       "accuracy": 1.0
     },
     "Identity": {
       "total_runs": 2,
       "verified_runs": 2,
+      "accuracy": 1.0
+    },
+    "Incident": {
+      "total_runs": 9,
+      "verified_runs": 5,
       "accuracy": 1.0
     },
     "Network": {
@@ -176,6 +186,55 @@
       "cumulative_accuracy": 0.69,
       "verified": 13,
       "correct": 9
+    },
+    {
+      "index": 14,
+      "date": "2026-06-25",
+      "cumulative_accuracy": 0.71,
+      "verified": 14,
+      "correct": 10
+    },
+    {
+      "index": 15,
+      "date": "2026-06-25",
+      "cumulative_accuracy": 0.73,
+      "verified": 15,
+      "correct": 11
+    },
+    {
+      "index": 16,
+      "date": "2026-06-26",
+      "cumulative_accuracy": 0.75,
+      "verified": 16,
+      "correct": 12
+    },
+    {
+      "index": 17,
+      "date": "2026-06-26",
+      "cumulative_accuracy": 0.76,
+      "verified": 17,
+      "correct": 13
+    },
+    {
+      "index": 18,
+      "date": "2026-06-27",
+      "cumulative_accuracy": 0.72,
+      "verified": 18,
+      "correct": 13
+    },
+    {
+      "index": 19,
+      "date": "2026-06-29",
+      "cumulative_accuracy": 0.74,
+      "verified": 19,
+      "correct": 14
+    },
+    {
+      "index": 20,
+      "date": "2026-06-29",
+      "cumulative_accuracy": 0.75,
+      "verified": 20,
+      "correct": 15
     }
   ],
   "tools_by_category": {
@@ -187,12 +246,20 @@
       "asset_lookup": 1
     },
     "Email": {
-      "user_lookup": 3,
-      "watchlist_check": 3,
-      "virustotal_url": 3,
-      "siem_query": 3,
-      "urlscan": 3,
-      "asset_lookup": 2
+      "user_lookup": 5,
+      "watchlist_check": 5,
+      "virustotal_url": 5,
+      "urlscan": 5,
+      "siem_query": 4,
+      "whois": 4
+    },
+    "Endpoint": {
+      "asset_lookup": 2,
+      "siem_query": 2,
+      "watchlist_check": 2,
+      "user_lookup": 2,
+      "virustotal_url": 1,
+      "abuseipdb": 1
     },
     "Identity": {
       "user_lookup": 2,
@@ -201,6 +268,14 @@
       "asset_lookup": 2,
       "ip_geo": 1,
       "abuseipdb": 1
+    },
+    "Incident": {
+      "user_lookup": 9,
+      "siem_query": 9,
+      "watchlist_check": 9,
+      "virustotal_url": 9,
+      "urlscan": 9,
+      "asset_lookup": 9
     },
     "Network": {
       "ip_geo": 1,
@@ -211,10 +286,157 @@
       "siem_query": 1
     }
   },
+  "token_totals": {
+    "total_input_tokens": 54733,
+    "total_output_tokens": 68630,
+    "cache_creation_tokens": 27732,
+    "cache_read_tokens": 62397,
+    "total_cost_usd": 1.274699,
+    "total_savings_usd": 0.168474,
+    "overall_cache_hit_pct": 53.3,
+    "traced_investigations": 12
+  },
+  "cost_by_mode": {
+    "standard": {
+      "avg_cost_usd": 0.076212,
+      "total_cost_usd": 0.457271,
+      "count": 6
+    },
+    "adaptive": {
+      "avg_cost_usd": 0.109657,
+      "total_cost_usd": 0.109657,
+      "count": 1
+    },
+    "parallel": {
+      "avg_cost_usd": 0.117597,
+      "total_cost_usd": 0.235194,
+      "count": 2
+    },
+    "chain": {
+      "avg_cost_usd": 0.157526,
+      "total_cost_usd": 0.472577,
+      "count": 3
+    }
+  },
+  "cost_over_time": [
+    {
+      "date": "2026-06-25",
+      "alert_id": "ALT-2026-018",
+      "mode": "standard",
+      "cost_usd": 0.078177,
+      "cache_hit_pct": 61.3
+    },
+    {
+      "date": "2026-06-25",
+      "alert_id": "INC-mchen",
+      "mode": "parallel",
+      "cost_usd": 0.120778,
+      "cache_hit_pct": 20.3
+    },
+    {
+      "date": "2026-06-26",
+      "alert_id": "INC-mchen",
+      "mode": "adaptive",
+      "cost_usd": 0.109657,
+      "cache_hit_pct": 67.6
+    },
+    {
+      "date": "2026-06-26",
+      "alert_id": "INC-mchen",
+      "mode": "chain",
+      "cost_usd": 0.156771,
+      "cache_hit_pct": 64.9
+    },
+    {
+      "date": "2026-06-26",
+      "alert_id": "INC-rhayes",
+      "mode": "standard",
+      "cost_usd": 0.10578,
+      "cache_hit_pct": 50.9
+    },
+    {
+      "date": "2026-06-26",
+      "alert_id": "INC-rhayes",
+      "mode": "standard",
+      "cost_usd": 0.094419,
+      "cache_hit_pct": 50.1
+    },
+    {
+      "date": "2026-06-26",
+      "alert_id": "INC-mchen",
+      "mode": "standard",
+      "cost_usd": 0.084802,
+      "cache_hit_pct": 68.6
+    },
+    {
+      "date": "2026-06-27",
+      "alert_id": "ALT-2026-002",
+      "mode": "standard",
+      "cost_usd": 0.07326,
+      "cache_hit_pct": 59.6
+    },
+    {
+      "date": "2026-06-27",
+      "alert_id": "ALT-2026-022",
+      "mode": "standard",
+      "cost_usd": 0.020833,
+      "cache_hit_pct": 0.0
+    },
+    {
+      "date": "2026-06-29",
+      "alert_id": "INC-mchen",
+      "mode": "parallel",
+      "cost_usd": 0.114416,
+      "cache_hit_pct": 33.2
+    },
+    {
+      "date": "2026-06-29",
+      "alert_id": "INC-mchen",
+      "mode": "chain",
+      "cost_usd": 0.156539,
+      "cache_hit_pct": 69.8
+    },
+    {
+      "date": "2026-06-29",
+      "alert_id": "INC-mchen",
+      "mode": "chain",
+      "cost_usd": 0.159267,
+      "cache_hit_pct": 64.9
+    }
+  ],
+  "accuracy_by_model": {
+    "claude-haiku-4-5-20251001": {
+      "total_runs": 1,
+      "verified_runs": 0,
+      "accuracy": null,
+      "avg_cost_usd": 0.020833,
+      "total_cost_usd": 0.0208
+    },
+    "claude-sonnet-4-6": {
+      "total_runs": 27,
+      "verified_runs": 20,
+      "accuracy": 0.75,
+      "avg_cost_usd": 0.046439,
+      "total_cost_usd": 1.2539
+    }
+  },
   "similar_cases": {
-    "ALT-2026-015": [],
     "ALT-2026-001": [],
-    "ALT-2026-002": [
+    "ALT-2026-018": [],
+    "INC-ptran": [],
+    "ALT-2026-006": [
+      {
+        "alert_id": "ALT-2026-018",
+        "similarity": 1.0,
+        "verdict": "NEEDS_ESCALATION",
+        "analyst_decision": "Escalate",
+        "accuracy_flag": "correct",
+        "mode": "standard",
+        "alert_category": "Endpoint",
+        "timestamp": "2026-06-25T00:08:13.673Z"
+      }
+    ],
+    "ALT-2026-022": [
       {
         "alert_id": "ALT-2026-015",
         "similarity": 1.0,
@@ -224,10 +446,18 @@
         "mode": "standard",
         "alert_category": "Email",
         "timestamp": "2026-06-21T03:31:15.278Z"
+      },
+      {
+        "alert_id": "ALT-2026-002",
+        "similarity": 1.0,
+        "verdict": "TRUE_POSITIVE",
+        "analyst_decision": "TP",
+        "accuracy_flag": "incorrect",
+        "mode": "standard",
+        "alert_category": "Email",
+        "timestamp": "2026-06-27T14:45:02.031Z"
       }
     ],
-    "INC-bwilson": [],
-    "INC-mchen": [],
     "ALT-2026-003": [
       {
         "alert_id": "ALT-2026-024",
@@ -240,10 +470,33 @@
         "timestamp": "2026-06-24T21:15:55.968Z"
       }
     ],
-    "ALT-2026-013": [],
+    "INC-bwilson": [],
+    "ALT-2026-015": [
+      {
+        "alert_id": "ALT-2026-002",
+        "similarity": 1.0,
+        "verdict": "TRUE_POSITIVE",
+        "analyst_decision": "TP",
+        "accuracy_flag": "incorrect",
+        "mode": "standard",
+        "alert_category": "Email",
+        "timestamp": "2026-06-27T14:45:02.031Z"
+      }
+    ],
+    "ALT-2026-002": [
+      {
+        "alert_id": "ALT-2026-015",
+        "similarity": 1.0,
+        "verdict": "NEEDS_ESCALATION",
+        "analyst_decision": "Escalate",
+        "accuracy_flag": "correct",
+        "mode": "standard",
+        "alert_category": "Email",
+        "timestamp": "2026-06-21T03:31:15.278Z"
+      }
+    ],
     "INC-rhayes": [],
     "INC-WKSTN-FIN-055": [],
-    "INC-ptran": [],
     "ALT-2026-024": [
       {
         "alert_id": "ALT-2026-003",
@@ -255,6 +508,8 @@
         "alert_category": "Identity",
         "timestamp": "2026-06-21T03:28:00.428Z"
       }
-    ]
+    ],
+    "ALT-2026-013": [],
+    "INC-mchen": []
   }
 }

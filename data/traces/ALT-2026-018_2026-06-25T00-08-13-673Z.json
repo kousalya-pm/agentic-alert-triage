@@ -1,0 +1,87 @@
+{
+  "startedAt": 1782346003323,
+  "aiCalls": [
+    {
+      "name": "Plan",
+      "latencyMs": 19933,
+      "inputTokens": 465,
+      "outputTokens": 1020,
+      "cacheCreationTokens": 2311,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.025361250000000002
+    },
+    {
+      "name": "Summarize",
+      "latencyMs": 68246,
+      "inputTokens": 994,
+      "outputTokens": 3276,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.052815299999999996
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-055"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "hostname": "WKSTN-FIN-055"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "WKSTN-FIN-055"
+      },
+      "latencyMs": 8,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "WKSTN-FIN-055"
+      },
+      "latencyMs": 11,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "hostname": "WKSTN-FIN-055",
+        "user_id": "",
+        "src_ip": ""
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "abuseipdb",
+      "parameters": {
+        "ip": "WKSTN-FIN-055"
+      },
+      "latencyMs": 299,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 1459,
+    "outputTokens": 4296,
+    "cacheCreationTokens": 2311,
+    "cacheReadTokens": 2311,
+    "estimatedCostUsd": 0.07817655,
+    "cacheSavingsUsd": 0.006239700000000001,
+    "cacheHitPct": 61,
+    "aiCallsCount": 2,
+    "toolCallsCount": 6,
+    "wallClockMs": 90350
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "startedAt": 1782509527057,
+  "aiCalls": [
+    {
+      "name": "Plan",
+      "latencyMs": 31531,
+      "inputTokens": 808,
+      "outputTokens": 1510,
+      "cacheCreationTokens": 2311,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.03374025
+    },
+    {
+      "name": "Summarize",
+      "latencyMs": 79939,
+      "inputTokens": 1495,
+      "outputTokens": 3700,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.060678300000000004
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "rhayes"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "LAPTOP-EXEC-001"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 127,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://pwc-advisory-secure.com"
+      },
+      "latencyMs": 362,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "pwc-advisory-secure.com"
+      },
+      "latencyMs": 819,
+      "status": "ok"
+    },
+    {
+      "tool": "ip_geo",
+      "parameters": {
+        "ip": "185.220.101.5"
+      },
+      "latencyMs": 39,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "user_id": "rhayes",
+        "src_ip": "",
+        "hostname": "LAPTOP-EXEC-001"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 2303,
+    "outputTokens": 5210,
+    "cacheCreationTokens": 2311,
+    "cacheReadTokens": 2311,
+    "estimatedCostUsd": 0.09441855,
+    "cacheSavingsUsd": 0.006239700000000001,
+    "cacheHitPct": 50,
+    "aiCallsCount": 2,
+    "toolCallsCount": 8,
+    "wallClockMs": 115286
+  }
+}

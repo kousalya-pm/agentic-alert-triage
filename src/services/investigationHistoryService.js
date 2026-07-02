@@ -5,7 +5,7 @@ const DATA_DIR = 'data';
 const CSV_FILE = path.join(DATA_DIR, 'investigation_history.csv');
 
 // CSV column order (matches schema in implementation plan)
-const CSV_HEADER = 'alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity,alert_category';
+const CSV_HEADER = 'alert_id,timestamp,mode,verdict,ai_score,analyst_decision,accuracy_flag,tools_used,investigation_time_sec,kill_chain_tactics,asset_criticality,data_sensitivity,alert_category,total_input_tokens,total_output_tokens,cache_creation_tokens,cache_read_tokens,estimated_cost_usd,cache_savings_usd,ai_calls_count,tool_calls_count,model_used';
 
 // Ensure data directory exists
 function ensureDataDir() {
@@ -19,6 +19,14 @@ function ensureCSVHeader() {
   ensureDataDir();
   if (!fs.existsSync(CSV_FILE)) {
     fs.writeFileSync(CSV_FILE, CSV_HEADER + '\n', 'utf-8');
+    return;
+  }
+  // Migrate header when new columns are added
+  const content = fs.readFileSync(CSV_FILE, 'utf-8');
+  const firstLine = content.split('\n')[0];
+  if (firstLine.trim() !== CSV_HEADER) {
+    const rest = content.split('\n').slice(1).join('\n');
+    fs.writeFileSync(CSV_FILE, CSV_HEADER + '\n' + rest, 'utf-8');
   }
 }
 
@@ -81,7 +89,16 @@ function investigationToCSVRow(investigation) {
     killChainTactics = [],
     assetCriticality = '',
     dataSensitivity = '',
-    alertCategory = ''
+    alertCategory = '',
+    totalInputTokens = '',
+    totalOutputTokens = '',
+    cacheCreationTokens = '',
+    cacheReadTokens = '',
+    estimatedCostUsd = '',
+    cacheSavingsUsd = '',
+    aiCallsCount = '',
+    toolCallsCount = '',
+    modelUsed = '',
   } = investigation;
 
   // Convert arrays to pipe-delimited strings
@@ -101,7 +118,16 @@ function investigationToCSVRow(investigation) {
     tacticsStr,
     assetCriticality,
     dataSensitivity,
-    alertCategory
+    alertCategory,
+    totalInputTokens,
+    totalOutputTokens,
+    cacheCreationTokens,
+    cacheReadTokens,
+    estimatedCostUsd,
+    cacheSavingsUsd,
+    aiCallsCount,
+    toolCallsCount,
+    modelUsed,
   ];
 
   return fields.map(escapeCSVField).join(',');
@@ -220,22 +246,10 @@ export async function recordAnalystFeedback(alertId, timestamp, analystDecision)
 
     const accuracyFlag = isCorrect ? 'correct' : 'incorrect';
 
-    const fields = [
-      parsed.alert_id,
-      parsed.timestamp,
-      parsed.mode,
-      parsed.verdict,
-      parsed.ai_score,
-      analystDecision,
-      accuracyFlag,
-      parsed.tools_used,
-      parsed.investigation_time_sec,
-      parsed.kill_chain_tactics,
-      parsed.asset_criticality,
-      parsed.data_sensitivity
-    ];
-
-    lines[targetLineIndex] = fields.map(escapeCSVField).join(',');
+    // Rebuild row preserving ALL columns; only analyst_decision and accuracy_flag change
+    const updatedRow = { ...parsed, analyst_decision: analystDecision, accuracy_flag: accuracyFlag };
+    const columnNames = CSV_HEADER.split(',');
+    lines[targetLineIndex] = columnNames.map(col => escapeCSVField(updatedRow[col.trim()] || '')).join(',');
     fs.writeFileSync(csvPath, lines.join('\n'), 'utf-8');
 
     return {

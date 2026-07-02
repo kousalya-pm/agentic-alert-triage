@@ -1,0 +1,168 @@
+{
+  "startedAt": 1782755175265,
+  "aiCalls": [
+    {
+      "name": "QuickTriage",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 6987,
+      "inputTokens": 1109,
+      "outputTokens": 269,
+      "cacheCreationTokens": 2311,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.01602825
+    },
+    {
+      "name": "Plan",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 28568,
+      "inputTokens": 680,
+      "outputTokens": 1420,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0240333
+    },
+    {
+      "name": "Summarize",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 72286,
+      "inputTokens": 1346,
+      "outputTokens": 3395,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0556563
+    },
+    {
+      "name": "EscalationPlan",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 12540,
+      "inputTokens": 550,
+      "outputTokens": 470,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0093933
+    },
+    {
+      "name": "Summarize",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 67963,
+      "inputTokens": 1316,
+      "outputTokens": 3301,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.054156300000000004
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://m365-secure-login.netlify.app"
+      },
+      "latencyMs": 227,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 137,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "m365-secure-login.netlify.app"
+      },
+      "latencyMs": 1068,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 107,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "m365-secure-login.netlify.app"
+      },
+      "latencyMs": 6,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "user_id": "mchen",
+        "src_ip": "",
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 4,
+      "status": "ok"
+    },
+    {
+      "tool": "ip_geo",
+      "parameters": {
+        "ip": "WKSTN-FIN-019"
+      },
+      "latencyMs": 109,
+      "status": "ok"
+    },
+    {
+      "tool": "abuseipdb",
+      "parameters": {
+        "ip": "WKSTN-FIN-019"
+      },
+      "latencyMs": 214,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 5001,
+    "outputTokens": 8855,
+    "cacheCreationTokens": 2311,
+    "cacheReadTokens": 9244,
+    "estimatedCostUsd": 0.15926744999999998,
+    "cacheSavingsUsd": 0.024958800000000003,
+    "cacheHitPct": 65,
+    "model_used": "claude-sonnet-4-6",
+    "aiCallsCount": 5,
+    "toolCallsCount": 12,
+    "wallClockMs": 190255
+  }
+}

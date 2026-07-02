@@ -4,7 +4,7 @@ import { Play, AlertTriangle, CheckCircle, XCircle, FileDown, Users, Cpu, Chevro
 import { runSpecialistAgent, synthesizeSpecialistReports } from '../services/aiService.js';
 import { executeTool, TOOLS } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
-import { saveRun, getRuns } from '../services/runHistoryService.js';
+import { saveRun, getRuns, updateRun } from '../services/runHistoryService.js';
 import {
   DECISIONS_KEY, VERDICT_CONFIG, VERDICT_SHORT,
   EscalationTicketModal, RunHistoryBar, formatAge,
@@ -12,8 +12,10 @@ import {
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel, oneLineSummary } from '../services/riskHeuristic.js';
 import { getInsights } from '../services/insightsClient.js';
-import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
-import SimilarCasesPanel from './SimilarCasesPanel.jsx';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload, fetchSimilarCasesContext } from '../services/investigationClient.js';
+import { startTrace, getTrace } from '../services/investigationTracer.js';
+import PostInvestigationTabs from './PostInvestigationTabs.jsx';
+import AnalystChatBox from './AnalystChatBox.jsx';
 
 // ─── Specialist definitions ────────────────────────────────────────────────────
 
@@ -159,6 +161,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   const [escalationTicket, setEscalationTicket] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
+  const [pastCasesInfo, setPastCasesInfo] = useState(null);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -183,7 +186,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     setPhase(PHASE.DONE);
     setError(null);
     setViewingRunId(run.runId);
-    setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    setAnalystDecision(run.analystDecision || null);
     // Recompute risk label from stored tool results
     const allToolResults = Object.values(states).flatMap(s =>
       (s.toolResults || []).map(tr => ({ tool: tr.tool, result: tr.result }))
@@ -222,6 +225,8 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
     window.dispatchEvent(new Event('soc-decisions-updated'));
+    const targetRunId = viewingRunId || runHistory[0]?.runId;
+    if (targetRunId) updateRun(alert.alert_id, targetRunId, { analystDecision: decision });
 
     // Record feedback to improve learning (v1.1)
     try {
@@ -258,7 +263,9 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
   }, [phase]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (phase !== PHASE.IDLE && phase !== PHASE.DONE) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [agentStates, phase]);
 
   // Update live risk label as each agent completes their tool calls
@@ -278,6 +285,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
       return;
     }
 
+    startTrace();
     startTime.current = Date.now();
     setPhase(PHASE.RUNNING);
     setSummary(null);
@@ -289,6 +297,10 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
     // Fetch insights for historical learning (v1.1)
     const fetchedInsights = await getInsights();
     setInsights(fetchedInsights);
+
+    // Fetch similar past cases for active learning (v1.2)
+    const pastCases = await fetchSimilarCasesContext(alert.alert_id, alert.alert_category || alert.category);
+    if (pastCases) setPastCasesInfo(pastCases);
 
     // Assign tools upfront — no AI call needed for planning
     const assignments = SPECIALISTS.map(s => ({
@@ -344,7 +356,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
       );
 
       setPhase(PHASE.SYNTHESIZING);
-      const finalSummary = await synthesizeSpecialistReports(alert, specialistReports, settings);
+      const finalSummary = await synthesizeSpecialistReports(alert, specialistReports, settings, pastCases);
       setSummary(finalSummary);
       setPhase(PHASE.DONE);
       clearInterval(timerRef.current);
@@ -374,7 +386,7 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
             (a.toolCalls || []).map(tc => ({ tool: tc.tool, parameters: tc.parameters, question: `${a.name}: ${tc.tool}` }))
           ),
         };
-        const payload = buildInvestigationPayload(alert, 'parallel', finalSummary, finalElapsed, parallelPlan);
+        const payload = buildInvestigationPayload(alert, 'parallel', finalSummary, finalElapsed, parallelPlan, getTrace());
         await saveInvestigation(payload);
       } catch (err) {
         console.warn('[v1.1] Failed to save parallel investigation to history:', err);
@@ -564,6 +576,16 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
           </div>
         )}
 
+        {/* Active Learning badge (v1.2) */}
+        {pastCasesInfo && phase !== PHASE.IDLE && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-500/20 rounded-lg text-xs text-amber-300">
+            <span>📋</span>
+            <span>
+              <strong>{pastCasesInfo.count}</strong> similar <strong>{pastCasesInfo.category}</strong> case{pastCasesInfo.count !== 1 ? 's' : ''} with analyst feedback injected into orchestrator synthesis
+            </span>
+          </div>
+        )}
+
         {/* ── Agent cards grid ── */}
         {phase !== PHASE.IDLE && (
           <>
@@ -708,8 +730,9 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
-        {/* Similar past cases (same category) */}
-        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
+        {phase === PHASE.DONE && summary && (
+          <PostInvestigationTabs alert={alert} summary={summary} settings={settings} trace={getTrace()} />
+        )}
 
         {/* ── Analyst actions ── */}
         {phase === PHASE.DONE && (
@@ -718,6 +741,10 @@ export default function ParallelAgentsWorkflow({ alert, settings, onOpenSettings
             aiVerdict={summary?.verdict}
             onAction={handleAnalystAction}
           />
+        )}
+
+        {phase === PHASE.DONE && (
+          <AnalystChatBox alert={alert} settings={settings} runId={viewingRunId || runHistory[0]?.runId} />
         )}
 
         <div ref={bottomRef} />

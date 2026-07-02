@@ -1,0 +1,102 @@
+{
+  "startedAt": 1782510849651,
+  "aiCalls": [
+    {
+      "name": "Plan",
+      "latencyMs": 27808,
+      "inputTokens": 680,
+      "outputTokens": 1402,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0237633
+    },
+    {
+      "name": "Summarize",
+      "latencyMs": 77051,
+      "inputTokens": 1440,
+      "outputTokens": 3735,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0610383
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 9,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://m365-secure-login.netlify.app"
+      },
+      "latencyMs": 286,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 227,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 113,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "m365-secure-login.netlify.app"
+      },
+      "latencyMs": 733,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "m365-secure-login.netlify.app"
+      },
+      "latencyMs": 6,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 11,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "user_id": "mchen",
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 10,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 2120,
+    "outputTokens": 5137,
+    "cacheCreationTokens": 0,
+    "cacheReadTokens": 4622,
+    "estimatedCostUsd": 0.0848016,
+    "cacheSavingsUsd": 0.012479400000000002,
+    "cacheHitPct": 69,
+    "aiCallsCount": 2,
+    "toolCallsCount": 8,
+    "wallClockMs": 108706
+  }
+}

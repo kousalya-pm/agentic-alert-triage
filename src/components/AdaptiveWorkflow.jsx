@@ -5,7 +5,7 @@ import { Play, AlertTriangle, FileDown, GitMerge, History, RotateCcw, Sparkles, 
 import { generateInvestigationPlan, generateFinalSummary, checkForAdditionalSteps } from '../services/aiService.js';
 import { executeTool } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
-import { saveRun, getRuns } from '../services/runHistoryService.js';
+import { saveRun, getRuns, updateRun } from '../services/runHistoryService.js';
 import {
   DECISIONS_KEY, VERDICT_CONFIG, VERDICT_SHORT, PRIORITY_COLOR,
   EscalationTicketModal, RunHistoryBar, formatAge,
@@ -13,8 +13,10 @@ import {
 } from './AgentWorkflow.jsx';
 import { computeRiskLevel } from '../services/riskHeuristic.js';
 import { getInsights } from '../services/insightsClient.js';
-import SimilarCasesPanel from './SimilarCasesPanel.jsx';
-import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
+import PostInvestigationTabs from './PostInvestigationTabs.jsx';
+import AnalystChatBox from './AnalystChatBox.jsx';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload, fetchSimilarCasesContext } from '../services/investigationClient.js';
+import { startTrace, getTrace } from '../services/investigationTracer.js';
 
 // Max dynamic steps the agent can inject during a single run
 const MAX_DYNAMIC_STEPS = 2;
@@ -66,6 +68,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
   const [escalationTicket, setEscalationTicket] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
+  const [pastCasesInfo, setPastCasesInfo] = useState(null);
   const startTime = useRef(null);
   const timerRef = useRef(null);
   const bottomRef = useRef(null);
@@ -92,7 +95,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setExpandedSteps({});
     setViewingRunId(run.runId);
     setDynamicStepsAdded(run.plan?.investigation_steps?.filter(s => s.dynamic).length || 0);
-    setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    setAnalystDecision(run.analystDecision || null);
     if (run.plan?.investigation_steps && run.stepResults) {
       const toolResults = run.stepResults.map((r, j) => ({ tool: run.plan.investigation_steps[j]?.tool, result: r }));
       setRiskLabel(computeRiskLevel(toolResults));
@@ -134,6 +137,9 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setAnalystDecision(decision);
     window.dispatchEvent(new Event('soc-decisions-updated'));
 
+    const targetRunId = viewingRunId || runHistory[0]?.runId;
+    if (targetRunId) updateRun(alert.alert_id, targetRunId, { analystDecision: decision });
+
     // Record feedback to improve learning (v1.1)
     try {
       const decisionMap = { tp: 'TP', fp: 'FP', escalate: 'Escalate', confirm_tp: 'TP', mark_fp: 'FP' };
@@ -174,7 +180,9 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
   }, [phase]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (phase !== PHASE.IDLE && phase !== PHASE.DONE) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [stepResults, phase]);
 
   const toggleStep = (i) => setExpandedSteps(prev => ({ ...prev, [i]: !prev[i] }));
@@ -197,6 +205,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
     setDynamicStepsAdded(0);
     setRiskLabel('UNKNOWN');
     setAnalystDecision(null);
+    startTrace();
     startTime.current = Date.now();
 
     try {
@@ -204,8 +213,12 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
       const fetchedInsights = await getInsights();
       setInsights(fetchedInsights);
 
+      // ── Fetch similar past cases for active learning (v1.2) ──
+      const pastCases = await fetchSimilarCasesContext(alert.alert_id, alert.alert_category || alert.category);
+      if (pastCases) setPastCasesInfo(pastCases);
+
       // ── Phase 1: Generate initial investigation plan ──
-      const initialPlan = await generateInvestigationPlan(alert, settings, fetchedInsights);
+      const initialPlan = await generateInvestigationPlan(alert, settings, fetchedInsights, pastCases);
 
       // Work with a mutable steps array so we can splice in dynamic steps
       const steps = [...initialPlan.investigation_steps];
@@ -277,7 +290,7 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
       });
       refreshHistory();
       try {
-        const payload = buildInvestigationPayload(alert, 'adaptive', finalSummary, finalElapsed, finalPlan);
+        const payload = buildInvestigationPayload(alert, 'adaptive', finalSummary, finalElapsed, finalPlan, getTrace());
         await saveInvestigation(payload);
       } catch (err) {
         console.warn('[v1.1] Failed to save adaptive investigation to history:', err);
@@ -493,6 +506,16 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
           </div>
         )}
 
+        {/* Active Learning badge (v1.2) */}
+        {pastCasesInfo && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-500/20 rounded-lg text-xs text-amber-300">
+            <span>📋</span>
+            <span>
+              <strong>{pastCasesInfo.count}</strong> similar <strong>{pastCasesInfo.category}</strong> case{pastCasesInfo.count !== 1 ? 's' : ''} with analyst feedback injected into plan
+            </span>
+          </div>
+        )}
+
         {/* Plan summary card */}
         {plan && (
           <div className="p-4 bg-[#161b22] border border-[#30363d] rounded-xl tool-call-enter">
@@ -571,8 +594,9 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
           <SummaryPanel summary={summary} elapsed={elapsed} alertId={alert.alert_id} />
         )}
 
-        {/* Similar past cases (same category) */}
-        {phase === PHASE.DONE && <SimilarCasesPanel alert={alert} />}
+        {phase === PHASE.DONE && summary && (
+          <PostInvestigationTabs alert={alert} summary={summary} settings={settings} trace={getTrace()} />
+        )}
 
         {/* Analyst actions */}
         {phase === PHASE.DONE && (
@@ -581,6 +605,10 @@ export default function AdaptiveWorkflow({ alert, settings, onOpenSettings, onEn
             aiVerdict={summary?.verdict}
             onAction={handleAnalystAction}
           />
+        )}
+
+        {phase === PHASE.DONE && (
+          <AnalystChatBox alert={alert} settings={settings} runId={viewingRunId || runHistory[0]?.runId} />
         )}
 
         <div ref={bottomRef} />

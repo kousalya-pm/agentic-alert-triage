@@ -1,0 +1,168 @@
+{
+  "startedAt": 1782754272177,
+  "aiCalls": [
+    {
+      "name": "QuickTriage",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 8436,
+      "inputTokens": 1109,
+      "outputTokens": 339,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0091053
+    },
+    {
+      "name": "Plan",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 26880,
+      "inputTokens": 681,
+      "outputTokens": 1349,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0229713
+    },
+    {
+      "name": "Summarize",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 77327,
+      "inputTokens": 1331,
+      "outputTokens": 3644,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0593463
+    },
+    {
+      "name": "EscalationPlan",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 13371,
+      "inputTokens": 580,
+      "outputTokens": 577,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.011088300000000002
+    },
+    {
+      "name": "Summarize",
+      "model": "claude-sonnet-4-6",
+      "latencyMs": 68165,
+      "inputTokens": 1293,
+      "outputTokens": 3297,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 2311,
+      "estimatedCostUsd": 0.0540273
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://m365-secure-login.netlify.app"
+      },
+      "latencyMs": 175,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 6983,
+      "status": "ok"
+    },
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "siem_query",
+      "parameters": {
+        "user_id": "mchen",
+        "src_ip": "",
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 1,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "m365-secure-login.netlify.app"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 146,
+      "status": "ok"
+    },
+    {
+      "tool": "abuseipdb",
+      "parameters": {
+        "ip": "src_ip_from_phishing_email_headers_ALT-2026-002_ALT-2026-022"
+      },
+      "latencyMs": 225,
+      "status": "ok"
+    },
+    {
+      "tool": "ip_geo",
+      "parameters": {
+        "ip": "src_ip_from_phishing_email_headers_ALT-2026-002_ALT-2026-022"
+      },
+      "latencyMs": 105,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 4994,
+    "outputTokens": 9206,
+    "cacheCreationTokens": 0,
+    "cacheReadTokens": 11555,
+    "estimatedCostUsd": 0.1565385,
+    "cacheSavingsUsd": 0.0311985,
+    "cacheHitPct": 70,
+    "model_used": "claude-sonnet-4-6",
+    "aiCallsCount": 5,
+    "toolCallsCount": 12,
+    "wallClockMs": 201847
+  }
+}

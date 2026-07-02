@@ -1,0 +1,88 @@
+{
+  "startedAt": 1782574523584,
+  "aiCalls": [
+    {
+      "name": "Plan",
+      "model": "claude-haiku-4-5-20251001",
+      "latencyMs": 8749,
+      "inputTokens": 2904,
+      "outputTokens": 904,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.007424
+    },
+    {
+      "name": "Summarize",
+      "model": "claude-haiku-4-5-20251001",
+      "latencyMs": 23619,
+      "inputTokens": 3269,
+      "outputTokens": 2028,
+      "cacheCreationTokens": 0,
+      "cacheReadTokens": 0,
+      "estimatedCostUsd": 0.013409
+    }
+  ],
+  "toolCalls": [
+    {
+      "tool": "virustotal_url",
+      "parameters": {
+        "url": "https://docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 317,
+      "status": "ok"
+    },
+    {
+      "tool": "whois",
+      "parameters": {
+        "ip": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 133,
+      "status": "ok"
+    },
+    {
+      "tool": "urlscan",
+      "parameters": {
+        "query": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 1618,
+      "status": "ok"
+    },
+    {
+      "tool": "user_lookup",
+      "parameters": {
+        "user_id": "mchen"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    },
+    {
+      "tool": "asset_lookup",
+      "parameters": {
+        "hostname": "WKSTN-FIN-019"
+      },
+      "latencyMs": 8,
+      "status": "ok"
+    },
+    {
+      "tool": "watchlist_check",
+      "parameters": {
+        "indicator": "docusign-secure.auth0-app.com"
+      },
+      "latencyMs": 0,
+      "status": "ok"
+    }
+  ],
+  "totals": {
+    "inputTokens": 6173,
+    "outputTokens": 2932,
+    "cacheCreationTokens": 0,
+    "cacheReadTokens": 0,
+    "estimatedCostUsd": 0.020833,
+    "cacheSavingsUsd": 0,
+    "cacheHitPct": 0,
+    "model_used": "claude-haiku-4-5-20251001",
+    "aiCallsCount": 2,
+    "toolCallsCount": 6,
+    "wallClockMs": 36290
+  }
+}

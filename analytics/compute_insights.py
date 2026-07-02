@@ -216,6 +216,131 @@ def compute_category_performance(investigations: List[Dict]) -> Dict[str, Dict]:
     return result
 
 
+def _safe_float(val, default=0.0):
+    try:
+        return float(val) if val not in (None, '', 'None') else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_int(val, default=0):
+    try:
+        return int(float(val)) if val not in (None, '', 'None') else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _cache_hit_pct(inv: Dict) -> float:
+    inp = _safe_int(inv.get('total_input_tokens'))
+    cached = _safe_int(inv.get('cache_read_tokens'))
+    total = inp + cached
+    return round(cached / total * 100, 1) if total > 0 else 0.0
+
+
+def compute_token_totals(investigations: List[Dict]) -> Dict:
+    """Aggregate token and cost totals across all investigations that have trace data."""
+    totals = {'total_input_tokens': 0, 'total_output_tokens': 0,
+              'cache_creation_tokens': 0, 'cache_read_tokens': 0}
+    total_cost = 0.0
+    total_savings = 0.0
+    traced = 0
+
+    for inv in investigations:
+        if not inv.get('estimated_cost_usd'):
+            continue
+        traced += 1
+        for key in totals:
+            totals[key] += _safe_int(inv.get(key))
+        total_cost += _safe_float(inv.get('estimated_cost_usd'))
+        total_savings += _safe_float(inv.get('cache_savings_usd'))
+
+    billable = totals['total_input_tokens'] + totals['cache_read_tokens']
+    cache_hit_pct = round(totals['cache_read_tokens'] / billable * 100, 1) if billable > 0 else 0.0
+
+    return {
+        **totals,
+        'total_cost_usd': round(total_cost, 6),
+        'total_savings_usd': round(total_savings, 6),
+        'overall_cache_hit_pct': cache_hit_pct,
+        'traced_investigations': traced,
+    }
+
+
+def compute_cost_by_mode(investigations: List[Dict]) -> Dict:
+    """Average and total cost per investigation mode."""
+    from collections import defaultdict
+    mode_costs = defaultdict(list)
+
+    for inv in investigations:
+        mode = (inv.get('mode') or '').lower()
+        cost = inv.get('estimated_cost_usd', '')
+        if mode and cost:
+            mode_costs[mode].append(_safe_float(cost))
+
+    result = {}
+    for mode in ['standard', 'adaptive', 'parallel', 'chain']:
+        costs = mode_costs.get(mode, [])
+        if costs:
+            result[mode] = {
+                'avg_cost_usd': round(sum(costs) / len(costs), 6),
+                'total_cost_usd': round(sum(costs), 6),
+                'count': len(costs),
+            }
+    return result
+
+
+def compute_cost_over_time(investigations: List[Dict]) -> List[Dict]:
+    """Per-run cost ordered chronologically — for the cost trend chart."""
+    result = []
+    for inv in sorted(investigations, key=lambda x: x.get('timestamp', '')):
+        cost = inv.get('estimated_cost_usd', '')
+        if not cost:
+            continue
+        result.append({
+            'date': inv.get('timestamp', '')[:10],
+            'alert_id': inv.get('alert_id', ''),
+            'mode': inv.get('mode', ''),
+            'cost_usd': round(_safe_float(cost), 6),
+            'cache_hit_pct': _cache_hit_pct(inv),
+        })
+    return result
+
+
+def compute_accuracy_by_model(investigations: List[Dict]) -> Dict:
+    """
+    Compute accuracy and cost metrics per model tier.
+    Returns: { model_id: { accuracy, avg_cost_usd, total_runs, verified_runs, total_cost_usd } }
+    Legacy rows without model_used default to claude-sonnet-4-6.
+    """
+    from collections import defaultdict
+    model_stats = defaultdict(lambda: {'correct': 0, 'verified': 0, 'total_runs': 0, 'total_cost': 0.0})
+
+    for inv in investigations:
+        model = (inv.get('model_used') or '').strip() or 'claude-sonnet-4-6'
+        model_stats[model]['total_runs'] += 1
+        try:
+            model_stats[model]['total_cost'] += float(inv.get('estimated_cost_usd') or 0)
+        except (ValueError, TypeError):
+            pass
+        if inv.get('accuracy_flag') and inv['accuracy_flag'] != 'pending':
+            model_stats[model]['verified'] += 1
+            if inv['accuracy_flag'] == 'correct':
+                model_stats[model]['correct'] += 1
+
+    result = {}
+    for model, stats in sorted(model_stats.items()):
+        verified = stats['verified']
+        runs = stats['total_runs']
+        result[model] = {
+            'total_runs': runs,
+            'verified_runs': verified,
+            'accuracy': round(stats['correct'] / verified, 2) if verified > 0 else None,
+            'avg_cost_usd': round(stats['total_cost'] / runs, 6) if runs > 0 else 0,
+            'total_cost_usd': round(stats['total_cost'], 4),
+        }
+    return result
+
+
 def find_similar_investigations(investigations: List[Dict], alert_id: str) -> Dict[str, List[Dict]]:
     """
     For each investigation, find similar past investigations.
@@ -286,6 +411,10 @@ def main():
     category_performance = compute_category_performance(investigations)
     accuracy_trend = compute_accuracy_trend(investigations)
     tools_by_category = compute_tools_by_category(investigations)
+    token_totals = compute_token_totals(investigations)
+    cost_by_mode = compute_cost_by_mode(investigations)
+    cost_over_time = compute_cost_over_time(investigations)
+    accuracy_by_model = compute_accuracy_by_model(investigations)
 
     # Build similar cases for each unique alert
     alert_ids = set(inv.get('alert_id', '') for inv in investigations if inv.get('alert_id'))
@@ -312,6 +441,10 @@ def main():
         'category_performance': category_performance,
         'accuracy_trend': accuracy_trend,
         'tools_by_category': tools_by_category,
+        'token_totals': token_totals,
+        'cost_by_mode': cost_by_mode,
+        'cost_over_time': cost_over_time,
+        'accuracy_by_model': accuracy_by_model,
         'similar_cases': similar_cases
     }
 

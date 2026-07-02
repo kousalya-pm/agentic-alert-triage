@@ -4,14 +4,16 @@ import { Play, ChevronRight, FileDown, RotateCcw, Zap, Search, ShieldAlert, Load
 import { generateInvestigationPlan, generateFinalSummary, runQuickTriage, planEscalationSteps } from '../services/aiService.js';
 import { executeTool } from '../services/toolService.js';
 import { exportTriageReport } from '../services/reportService.js';
-import { saveRun, getRuns } from '../services/runHistoryService.js';
+import { saveRun, getRuns, updateRun } from '../services/runHistoryService.js';
 import {
   DECISIONS_KEY, VERDICT_CONFIG, VERDICT_SHORT,
   RunHistoryBar, formatAge, AnalystActions, ResultDisplay, SummaryPanel,
 } from './AgentWorkflow.jsx';
 import { getInsights } from '../services/insightsClient.js';
-import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload } from '../services/investigationClient.js';
-import SimilarCasesPanel from './SimilarCasesPanel.jsx';
+import { recordAnalystFeedback, saveInvestigation, buildInvestigationPayload, fetchSimilarCasesContext } from '../services/investigationClient.js';
+import { startTrace, getTrace } from '../services/investigationTracer.js';
+import PostInvestigationTabs from './PostInvestigationTabs.jsx';
+import AnalystChatBox from './AnalystChatBox.jsx';
 
 function loadDecisions() {
   try { return JSON.parse(localStorage.getItem(DECISIONS_KEY) || '{}'); } catch { return {}; }
@@ -76,6 +78,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
   const [viewingRunId, setViewingRunId] = useState(null);
   const [insights, setInsights] = useState(null);
   const [insightsExpanded, setInsightsExpanded] = useState(false);
+  const [pastCasesInfo, setPastCasesInfo] = useState(null);
 
   const startTime = useRef(null);
   const timerRef = useRef(null);
@@ -112,7 +115,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
     setPhase(PHASE.DONE);
     setError(null);
     setViewingRunId(run.runId);
-    setAnalystDecision(loadDecisions()[alert.alert_id] || null);
+    setAnalystDecision(run.analystDecision || null);
   };
 
   const startNewRun = () => {
@@ -124,6 +127,8 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
   const handleAction = async (decision) => {
     saveDecision(alert.alert_id, decision);
     setAnalystDecision(decision);
+    const targetRunId = viewingRunId || runHistory[0]?.runId;
+    if (targetRunId) updateRun(alert.alert_id, targetRunId, { analystDecision: decision });
 
     // Record feedback to improve learning (v1.1)
     try {
@@ -145,6 +150,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
     setViewingRunId(null);
     setPhase(PHASE.T1_SCANNING);
     resetState();
+    startTrace();
     startTime.current = Date.now();
     timerRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startTime.current) / 1000));
@@ -154,6 +160,10 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
       // ── Fetch insights for historical learning (v1.1) ──
       const fetchedInsights = await getInsights();
       setInsights(fetchedInsights);
+
+      // ── Fetch similar past cases for active learning (v1.2) ──
+      const pastCases = await fetchSimilarCasesContext(alert.alert_id, alert.alert_category || alert.category);
+      if (pastCases) setPastCasesInfo(pastCases);
 
       // ── TIER 1: Quick Scan ─────────────────────────────────────────────────
       const t1Tools = pickTier1Tools(alert);
@@ -185,7 +195,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         });
         refreshHistory();
         try {
-          const payload = buildInvestigationPayload(alert, 'chain', closedSummary, fe, closedPlan);
+          const payload = buildInvestigationPayload(alert, 'chain', closedSummary, fe, closedPlan, getTrace());
           await saveInvestigation(payload);
         } catch (err) {
           console.warn('[v1.1] Failed to save chain (close) investigation to history:', err);
@@ -195,7 +205,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
 
       // ── TIER 2: Deep Investigation ─────────────────────────────────────────
       setPhase(PHASE.T2_PLANNING);
-      const plan = await generateInvestigationPlan(alert, settings);
+      const plan = await generateInvestigationPlan(alert, settings, fetchedInsights, pastCases);
       setTier2Plan(plan);
 
       setPhase(PHASE.T2_INVESTIGATING);
@@ -225,7 +235,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         });
         refreshHistory();
         try {
-          const payload = buildInvestigationPayload(alert, 'chain', t2Sum, fe, plan);
+          const payload = buildInvestigationPayload(alert, 'chain', t2Sum, fe, plan, getTrace());
           await saveInvestigation(payload);
         } catch (err) {
           console.warn('[v1.1] Failed to save chain (T2) investigation to history:', err);
@@ -271,7 +281,7 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
       });
       refreshHistory();
       try {
-        const payload = buildInvestigationPayload(alert, 'chain', t3FinalSummary, fe, syntheticPlan);
+        const payload = buildInvestigationPayload(alert, 'chain', t3FinalSummary, fe, syntheticPlan, getTrace());
         await saveInvestigation(payload);
       } catch (err) {
         console.warn('[v1.1] Failed to save chain (T3) investigation to history:', err);
@@ -471,6 +481,16 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
           />
         )}
 
+        {/* Active Learning badge (v1.2) */}
+        {pastCasesInfo && tier2Active && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-amber-500/8 border border-amber-500/20 rounded-lg text-xs text-amber-300">
+            <span>📋</span>
+            <span>
+              <strong>{pastCasesInfo.count}</strong> similar <strong>{pastCasesInfo.category}</strong> case{pastCasesInfo.count !== 1 ? 's' : ''} with analyst feedback injected into Tier 2 plan
+            </span>
+          </div>
+        )}
+
         {/* TIER 2 */}
         {tier2Active && (
           <TierSection number={2} title="Deep Investigation" icon={Search} color="cyan"
@@ -520,8 +540,9 @@ export default function ChainWorkflow({ alert, settings, onOpenSettings, onEntit
         {finalSummary && phase === PHASE.DONE && (
           <div className="space-y-3 pt-1">
             <SummaryPanel summary={finalSummary} elapsed={elapsed} alertId={alert.alert_id} />
-            <SimilarCasesPanel alert={alert} />
+            <PostInvestigationTabs alert={alert} summary={finalSummary} settings={settings} trace={getTrace()} />
             <AnalystActions decision={analystDecision} aiVerdict={finalSummary.verdict} onAction={handleAction} />
+            <AnalystChatBox alert={alert} settings={settings} runId={viewingRunId || runHistory[0]?.runId} />
           </div>
         )}
 

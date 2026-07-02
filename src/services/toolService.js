@@ -2,6 +2,7 @@
 // Internal tools use CSV data; external tools call the proxy server
 
 import { lookupUser, lookupAsset, queryPastAlerts, checkWatchlist } from './csvService.js';
+import { recordToolCall } from './investigationTracer.js';
 
 const PROXY = '/api';
 
@@ -124,9 +125,13 @@ export async function executeTool(toolName, params, settings) {
         result = { error: `Unknown tool: ${toolName}` };
     }
 
-    return { ...result, duration_ms: Date.now() - start };
+    const duration = Date.now() - start;
+    recordToolCall(toolName, params, duration, 'ok');
+    return { ...result, duration_ms: duration };
   } catch (err) {
-    return { error: err.message, duration_ms: Date.now() - start };
+    const duration = Date.now() - start;
+    recordToolCall(toolName, params, duration, 'error');
+    return { error: err.message, duration_ms: duration };
   }
 }
 
