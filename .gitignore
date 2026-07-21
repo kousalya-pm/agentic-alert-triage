@@ -13,3 +13,6 @@ TEST_CHECKLIST.md
 
 # Runtime-generated files
 data/traces/
+
+# macOS
+.DS_Store
