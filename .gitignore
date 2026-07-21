@@ -1,3 +1,15 @@
 node_modules/
 .env
 dist/
+
+# Interview/presentation artifacts — kept locally, not part of the prototype
+*.pptx
+build_interview_deck.cjs
+TEST_CHECKLIST.md
+
+# Claude Code local settings (may contain shell history with keys)
+.claude/settings.local.json
+.claude/settings.json
+
+# Runtime-generated files
+data/traces/
