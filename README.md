@@ -49,6 +49,14 @@ Cross-run analytics: verdict accuracy by workflow mode, cost per investigation b
 
 ---
 
+## Documentation
+
+→ [Architecture and implementation details](docs/architecture.md) — three versions, tool catalog, system diagram, key files
+
+→ [Design decisions and product thinking](docs/platform-thinking.md) — PM questions explored, design decisions, what was learned
+
+---
+
 ## Product Investigation Series
 
 *Part of a broader exploration of AI-powered security platform architecture.*
@@ -79,9 +87,6 @@ npx vite --port 5173  # Frontend — port 5173
 Open [http://localhost:5173](http://localhost:5173), add your API key in Settings, select any alert, and click **Run AI Triage**.
 
 External threat intel keys (AbuseIPDB, VirusTotal, URLScan.io) are optional — realistic simulated data is returned without them.
-
-→ [Architecture and implementation details](docs/architecture.md)
-→ [Design decisions and product thinking](docs/platform-thinking.md)
 
 ---
 
