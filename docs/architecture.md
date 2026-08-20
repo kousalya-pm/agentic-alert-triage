@@ -70,33 +70,9 @@ Key files: `src/services/investigationTracer.js`, `src/components/TracePanel.jsx
 
 ## System Architecture
 
-```
-┌──────────────────────────────────────────────────────┐
-│                   Platform Layer                      │
-│                                                      │
-│  Tool Catalog (MCP · port 3002)                      │
-│  AbuseIPDB · VirusTotal · URLScan · SIEM · CMDB      │
-│                                                      │
-│  Model Router                                        │
-│  Critical → Opus 4.8 · High → Sonnet 4.6            │
-│  Medium/Low → Haiku 4.5                              │
-│                                                      │
-│  Observability                                       │
-│  Per-call trace · Token/cost metering · Audit log    │
-│                                                      │
-│  Agent Memory                                        │
-│  Investigation history · Tool effectiveness          │
-│  Similar-case matching · Learning injection          │
-└──────────────────────────────────────────────────────┘
-         │                          │
- Standard / Adaptive          Chain / Parallel
- (single agent)               (multi-agent)
-         │                          │
-         └────────────┬─────────────┘
-                      ▼
-           Analyst Review Console
-           Approve · Reject · Escalate
-```
+![Architecture diagram — user → application → model → tools → data → response](screenshots/architecture-diagram.png)
+
+→ [Interactive version with light/dark mode](architecture-diagram.html)
 
 ## Key Files
 

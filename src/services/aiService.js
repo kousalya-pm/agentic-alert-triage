@@ -650,7 +650,6 @@ async function callClaude(prompt, settings, maxTokens, caller = 'ai_call', model
     body: JSON.stringify({
       model: resolvedModel,
       max_tokens: maxTokens,
-      temperature: 0,
       // System prompt as a content block with cache_control so the static SOC context
       // is cached after the first call and re-read at ~10% of the input token cost.
       system: [{ type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } }],

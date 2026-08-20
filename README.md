@@ -49,6 +49,14 @@ Cross-run analytics: verdict accuracy by workflow mode, cost per investigation b
 
 ---
 
+## Architecture
+
+![Architecture diagram — user → application → model → tools → data → response](docs/screenshots/architecture-diagram.png)
+
+→ [Interactive version with light/dark mode](docs/architecture-diagram.html)
+
+---
+
 ## Documentation
 
 → [Architecture and implementation details](docs/architecture.md) — three versions, tool catalog, system diagram, key files
